@@ -27,3 +27,27 @@ def initialize_db():
 
     conn.commit()
     conn.close()
+
+def add_expense_to_db(date, category, amount, note):
+    conn = sqlite3.connect("expense_analyzer.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+              (date, category, amount, note))
+    conn.commit()
+    conn.close()
+
+def get_all_expenses():
+    conn = sqlite3.connect("expense_analyzer.db")
+    c = conn.cursor()
+    c.execute("SELECT date, category, amount, note FROM expenses")
+    results = c.fetchall()
+    conn.close()
+    return results
+
+def get_monthly_limits():
+    conn = sqlite3.connect("expense_analyzer.db")
+    c = conn.cursor()
+    c.execute("SELECT month, category, limit FROM budget_limits")
+    results = c.fetchall()
+    conn.close()
+    return results
