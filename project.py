@@ -2,10 +2,12 @@
 
 import json
 import os
+import sqlite3
 from datetime import datetime
 from messages import messages as project_messages
 from collections import defaultdict
 from utils import load_monthly_limits, save_monthly_limits
+from db import add_expense_to_db, get_all_expenses, get_monthly_limits
 
 EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
@@ -13,122 +15,149 @@ BUDGET_LIMITS_FILE = "budget_limits.json"
 def calculate_total_expenses(expenses):
     return sum(expense["amount"] for expense in expenses)
 
-def load_expenses(file_path=EXPENSES_FILE):
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
+def load_expenses():
+    conn = sqlite3.connect("expenses.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT date, category, amount, note FROM expenses")
+    rows = cursor.fetchall()
+    conn.close()
 
+    expenses = []
+    for row in rows:
+        expense = {
+            "date": row[0],
+            "category": row[1],
+            "amount": row[2],
+            "note": row[3]
+        }
+        expenses.append(expense)
+    return expenses
+    
 def save_expenses(expenses, file_path=EXPENSES_FILE):
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(expenses, f, indent=2, ensure_ascii=False)
-
-def add_expense(expenses, messages, lang, budget_limits, categories):
-
-    print(messages["add_expense_header"])
-    print(f'{messages["valid_categories"]}: {", ".join(categories)}')
-
-    while True:
-        category = input(messages["enter_category"]).strip().lower()
-
-        if category in [c.lower() for c in categories]:
-            break
-        elif category in ["education", "subscriptions", "stationery"]:
-            print(messages["auto_assign_other"])
-            category = "other"
-            break
-        else:
-            print(messages["invalid_category"])
-            print(f'{messages["valid_categories"]}: {", ".join(categories)}')
-
+    if USE_SQLITE:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                category TEXT,
+                amount REAL,
+                note TEXT
+            )
+        """)
+        cursor.execute("DELETE FROM expenses")  # очищаем таблицу перед новой вставкой
+        for exp in expenses:
+            cursor.execute("INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+                           (exp['date'], exp['category'], exp['amount'], exp['note']))
+        conn.commit()
+        conn.close()
+    else:
+        with open(file_path, "w", encoding="utf-8") as f:
+            json.dump(expenses, f, indent=2, ensure_ascii=False)
+            
+def add_expense(messages, lang, budget_limits, categories):
+    print(messages[lang]["enter_category"])
+    for i, cat in enumerate(categories):
+        print(f"{i + 1}. {cat}")
+    
     try:
-        amount = float(input(messages["enter_amount"]))
+        cat_choice = int(input("> ")) - 1
+        if cat_choice not in range(len(categories)):
+            print(messages[lang]["invalid_category"])
+            return
+        category = categories[cat_choice]
     except ValueError:
-        print(messages["invalid_amount"])
+        print(messages[lang]["invalid_category"])
         return
 
-    description = input(messages["enter_description"])
-    date = datetime.today().strftime("%Y-%m-%d")
+    try:
+        amount = float(input(messages[lang]["enter_amount"] + " "))
+    except ValueError:
+        print(messages[lang]["invalid_amount"])
+        return
 
-    expenses.append({
-        "category": category,
-        "amount": amount,
-        "description": description,
-        "date": date
-    })
+    description = input(messages[lang]["enter_description"] + " ")
+    date_str = input(messages[lang]["enter_date"] + " ")
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    except ValueError:
+        print(messages[lang]["invalid_date"])
+        return
 
-    print(messages["expense_added"])
-    input(messages["press_enter_to_continue"])
+    # 💾 Сохраняем в SQLite, вместо списка
+    add_expense_to_db(str(date), category, amount, description)
 
-    # 🔽 Определяем текущий месяц
-    current_month = date[:7]  # формат YYYY-MM
+    print(messages[lang]["expense_added"])
+    
+def summarize_expenses(db_path, messages, lang, budget_limits=None, by_date=False):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
 
-    # 🔽 Проверка лимитов по категориям за этот месяц
-    category_totals = {}
-    for exp in expenses:
-        exp_month = exp["date"][:7]
-        if exp_month == current_month:
-            cat = exp["category"].lower()
-            amt = exp["amount"]
-            category_totals[cat] = category_totals.get(cat, 0) + amt
-
-    print(messages["budget_check_header"])
-    for cat, total in category_totals.items():
-        limit = budget_limits.get(current_month, {}).get(cat, 0)
-        if total > limit:
-            print(messages["category_over_limit"].format(
-                category=cat.capitalize(), total=total, limit=limit))
-        elif total >= limit * 0.9 and limit > 0:
-            print(messages["category_near_limit"].format(
-                category=cat.capitalize(), total=total, limit=limit))
-        else:
-            print(messages["category_within_limit"].format(
-                category=cat.capitalize(), total=total, limit=limit))
-
-def summarize_expenses(expenses, messages, lang, budget_limits=None, by_date=False):
-    print(messages["expense_summary"])
     if by_date:
-        daily_totals = {}
-        for e in expenses:
-            date = e["date"]
-            if date not in daily_totals:
-                daily_totals[date] = {}
-            category = e["category"]
-            amount = e["amount"]
-            daily_totals[date][category] = daily_totals[date].get(category, 0) + amount
+        cursor.execute("""
+            SELECT date, category, SUM(amount) 
+            FROM expenses 
+            GROUP BY date, category
+            ORDER BY date
+        """)
+        daily_totals = defaultdict(lambda: defaultdict(float))
+        for date, category, amount in cursor.fetchall():
+            daily_totals[date][category] += amount
 
-        for date in sorted(daily_totals.keys()):
-            print(f"\nDate: {date}")
+        for date in sorted(daily_totals):
+            print(f"\n{date}:")
             for category, total in daily_totals[date].items():
                 print(f"  {category}: ${total:.2f}")
+
     else:
-        monthly_totals = {}
-        for e in expenses:
-            month = e["date"][:7]
-            category = e["category"]
-            amount = e["amount"]
-            if month not in monthly_totals:
-                monthly_totals[month] = {}
-            monthly_totals[month][category] = monthly_totals[month].get(category, 0) + amount
+        cursor.execute("""
+            SELECT substr(date, 1, 7) as month, category, SUM(amount)
+            FROM expenses
+            GROUP BY month, category
+            ORDER BY month
+        """)
+        monthly_totals = defaultdict(lambda: defaultdict(float))
+        for month, category, amount in cursor.fetchall():
+            monthly_totals[month][category] += amount
 
-        for month in sorted(monthly_totals.keys()):
-            print(f"\nMonth: {month}")
+        for month in sorted(monthly_totals):
+            print(f"\n{month}:")
             for category, total in monthly_totals[month].items():
-                print(f"  {category}: ${total:.2f}")
+                line = f"  {category}: ${total:.2f}"
+                if budget_limits:
+                    month_limits = budget_limits.get(month, {})
+                    limit = month_limits.get(category)
+                    if limit is not None:
+                        status = (messages["over_limit"][lang]
+                                  if total > limit
+                                  else messages["within_limit"][lang])
+                        line += f" → {status} (Limit: ${limit:.2f})"
+                print(line)
 
-            if budget_limits and month in budget_limits:
-                print(messages["current_limits"].format(month=month))
-                for category, limit in budget_limits[month].items():
-                    spent = monthly_totals[month].get(category, 0)
-                    status = messages["limit_exceeded"] if spent > limit else messages["within_limit"]
-                    print(f"  {category}: ${spent:.2f} / ${limit:.2f} → {status}")
-
+    conn.close()
+    
 def get_budget_tips(messages):
-    print(messages["tips_header"])
-    print("- " + messages["tip_1"])
-    print("- " + messages["tip_2"])
-    print("- " + messages["tip_3"])
+    """
+    Display financial tips for the user.
+    Currently uses static messages, but can be extended to dynamic tips based on user's data.
 
+    Args:
+        messages (dict): Dictionary of localized messages and tips.
+
+    Returns:
+        None
+    """
+
+    print(messages["tips_header"])
+    tips = [
+        messages.get("tip_1", "Track your spending regularly."),
+        messages.get("tip_2", "Set realistic monthly budgets."),
+        messages.get("tip_3", "Avoid impulse purchases.")
+    ]
+    for tip in tips:
+        print("- " + tip)
+        
 def get_valid_date(prompt, messages):
     while True:
         date_str = input(prompt).strip()
@@ -138,7 +167,7 @@ def get_valid_date(prompt, messages):
         except ValueError:
             print(messages["invalid_date_format"])
 
-def filter_expenses_by_date(expenses, messages, start_date=None, end_date=None):
+def filter_expenses_by_date(start_date=None, end_date=None):
     print(messages["filter_prompt"])
 
     if start_date is None:
@@ -146,14 +175,39 @@ def filter_expenses_by_date(expenses, messages, start_date=None, end_date=None):
     if end_date is None:
         end_date = get_valid_date(messages["end_date"], messages)
 
-    filtered = [
-        expense for expense in expenses
-        if start_date <= expense["date"] <= end_date
-    ]
+    conn = sqlite3.connect("expenses.db")
+    cursor = conn.cursor()
 
-    summarize_expenses(filtered, messages, "en")
-    return filtered
+    cursor.execute(
+        """
+        SELECT date, category, amount, note
+        FROM expenses
+        WHERE date BETWEEN ? AND ?
+        ORDER BY date ASC
+        """,
+        (start_date, end_date)
+    )
 
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        print(messages["no_expenses_found"])
+        return []
+
+    expenses = []
+    for row in rows:
+        date, category, amount, note = row
+        expenses.append({
+            "date": date,
+            "category": category,
+            "amount": amount,
+            "note": note
+        })
+
+    summarize_expenses(expenses, messages, "en")
+    return expenses
+    
 def show_summary(expenses, messages):
     # Заголовок
     print("\n" + messages["expense_summary"])
@@ -223,53 +277,55 @@ def show_monthly_summary(expenses, messages):
         for category, amount in monthly_data[month].items():
             print(f"  {category.capitalize()}: ${amount:.2f}")
 
-def check_budget_limits(expenses, budget_limits, messages, start_date=None, end_date=None):
+def check_budget_limits(conn, budget_limits, messages, start_date=None, end_date=None):
+    cursor = conn.cursor()
+
     if isinstance(start_date, str):
         start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
     if isinstance(end_date, str):
         end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
     if start_date and end_date:
-        # 🔹 Группируем расходы по месяцам
-        expenses_by_month = {}
-        for expense in expenses:
-            date = datetime.strptime(expense["date"], "%Y-%m-%d").date()
-            if start_date <= date <= end_date:
-                month_str = date.strftime("%Y-%m")
-                if month_str not in expenses_by_month:
-                    expenses_by_month[month_str] = []
-                expenses_by_month[month_str].append(expense)
-
-        # 🔍 Анализируем каждый месяц отдельно
-        for month, month_expenses in expenses_by_month.items():
-            print(f"\n=== Budget check for {month} ===")
-            monthly_totals = {}
-            for exp in month_expenses:
-                cat = exp["category"]
-                monthly_totals[cat] = monthly_totals.get(cat, 0) + exp["amount"]
-
-            if month in budget_limits:
-                for cat, total in monthly_totals.items():
-                    limit = budget_limits[month].get(cat)
-                    if limit is not None and total > limit:
-                        print(f"⚠️  Over budget for {cat}: {total:.2f} > {limit:.2f}")
-            else:
-                print("ℹ️  No budget limits defined for this month.")
+        # 🔹 Анализ по месяцам в заданном диапазоне
+        cursor.execute("""
+            SELECT date, category, amount FROM expenses
+            WHERE date BETWEEN ? AND ?
+        """, (start_date, end_date))
     else:
-        # 🔸 Стандартная логика, как раньше
-        print("\n=== Budget check for all time ===")
-        total_by_category = {}
-        for expense in expenses:
-            cat = expense["category"]
-            total_by_category[cat] = total_by_category.get(cat, 0) + expense["amount"]
+        # 🔸 Анализ по всем записям
+        cursor.execute("SELECT date, category, amount FROM expenses")
 
-        for cat, total in total_by_category.items():
-            limit = 0
-            # Складываем лимиты по всем месяцам
-            for month_limits in budget_limits.values():
-                limit += month_limits.get(cat, 0)
-            if limit and total > limit:
-                print(f"⚠️  Over budget for {cat}: {total:.2f} > {limit:.2f}")
+    rows = cursor.fetchall()
+    expenses_by_month = {}
 
+    for row in rows:
+        date_str, category, amount = row
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        month = date.strftime("%Y-%m")
+
+        if month not in expenses_by_month:
+            expenses_by_month[month] = []
+        expenses_by_month[month].append((category, amount))
+
+    for month, month_expenses in expenses_by_month.items():
+        print(f"\n=== Budget check for {month} ===")
+        totals = {}
+
+        for category, amount in month_expenses:
+            totals[category] = totals.get(category, 0) + amount
+
+        if month in budget_limits:
+            for category, total in totals.items():
+                limit = budget_limits[month].get(category)
+                if limit is not None and total > limit:
+                    print(messages["over_limit"].format(
+                        category=category,
+                        total=total,
+                        limit=limit
+                    ))
+        else:
+            print(messages["no_limits_defined"].format(month=month))
+            
 def update_budget_limits(budget_limits, categories, lang):
     messages = project_messages[lang]
 
