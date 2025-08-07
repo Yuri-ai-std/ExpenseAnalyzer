@@ -92,29 +92,52 @@ def test_check_budget_limits_exceeded(tmp_path, capsys):
 
     conn.close()
 
-def test_summarize_expenses(capsys):
-    # 1. Фиктивные расходы
-    expenses = [
-        {"date": "2025-07-21", "category": "food", "amount": 20.0, "description": "groceries"},
-        {"date": "2025-07-22", "category": "food", "amount": 10.0, "description": ""},
-        {"date": "2025-07-22", "category": "transport", "amount": 15.0, "description": "bus"},
-    ]
+def test_summarize_expenses(tmp_path, capsys):
+    import sqlite3
+    from project import summarize_expenses
 
-    # 2. Сообщения
+    # 1) Временная БД
+    db_path = tmp_path / "test_expenses.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+
+    # 2) Тестовые данные
+    test_data = [
+        ("2025-07-21", "food", 20.0, "groceries"),
+        ("2025-07-22", "food", 10.0, ""),
+        ("2025-07-22", "transport", 15.0, "bus"),
+    ]
+    cursor.executemany(
+        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+        test_data
+    )
+    conn.commit()
+    conn.close()
+
+    # 3) Сообщения-заглушки
     messages = {
         "expense_summary": "📊 Expense Summary",
         "category_total": "🧾 ",
-        "note": "📝 Note:"
+        "note": "📝 Note:",
+        "over_limit": "⚠️ Over budget for {category}",
+        "within_limit": "✅ Budget within limits.",
     }
 
-    # 3. Запуск функции
-    summarize_expenses(expenses, messages, "en")
-    output = capsys.readouterr().out
-
-    # 4. Проверка
-    assert "📊 Expense Summary" in output
-    assert "food: $30.00" in output
-    assert "transport: $15.00" in output
+    # 4) Запуск и проверка вывода
+    summarize_expenses(str(db_path), messages, "en")
+    out = capsys.readouterr().out
+    assert "2025-07" in out
+    assert "food: $30.00" in out
+    assert "transport: $15.00" in out
 
 def test_filter_expenses_by_date():
     expenses = [
