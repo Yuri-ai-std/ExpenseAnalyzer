@@ -169,7 +169,7 @@ def get_valid_date(prompt, messages):
         except ValueError:
             print(messages["invalid_date_format"])
 
-def filter_expenses_by_date(start_date=None, end_date=None):
+def filter_expenses_by_date(start_date=None, end_date=None, messages=None):
     print(messages["filter_prompt"])
 
     if start_date is None:
@@ -207,7 +207,7 @@ def filter_expenses_by_date(start_date=None, end_date=None):
             "note": note
         })
 
-    summarize_expenses(expenses, messages, "en")
+    summarize_expenses("expenses.db", messages, "en")
     return expenses
     
 def show_summary(expenses, messages):
