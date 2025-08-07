@@ -11,6 +11,8 @@ from db import add_expense_to_db, get_all_expenses, get_monthly_limits
 
 EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
+USE_SQLITE = True
+DATABASE_FILE = "expenses.db"
 
 def calculate_total_expenses(expenses):
     return sum(expense["amount"] for expense in expenses)
