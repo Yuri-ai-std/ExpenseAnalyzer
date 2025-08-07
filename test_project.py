@@ -6,6 +6,7 @@ import sys
 import json
 import pytest
 import tempfile
+import sqlite3
 from messages import messages
 from project import (
     add_expense,
@@ -38,36 +39,58 @@ def test_add_expense_and_calculate_total(tmp_path):
     # 5. Проверяем сумму
     assert total == 50.0
 
-def test_check_budget_limits_exceeded(monkeypatch, capsys):
-    # 1. Фиктивные расходы
-    expenses = [
-        {"date": "2025-07-23", "category": "food", "amount": 60.0},
-        {"date": "2025-07-24", "category": "transport", "amount": 20.0}
+def test_check_budget_limits_exceeded(tmp_path, capsys):
+    import sqlite3
+    from project import check_budget_limits
+
+    # 1. Подготовка временной базы данных
+    db_path = tmp_path / "test_expenses.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+
+    # 2. Вставка фиктивных расходов
+    expenses_data = [
+        ("2025-07-23", "food", 60.0, "groceries"),
+        ("2025-07-24", "transport", 20.0, "bus"),
     ]
+    cursor.executemany("""
+        INSERT INTO expenses (date, category, amount, note)
+        VALUES (?, ?, ?, ?)
+    """, expenses_data)
+    conn.commit()
 
-    # 2. Лимиты: food ограничен 50
-    monthly_limits = {
-        "2025-07": {"food": 50.0, "transport": 100.0}
+    # 3. Определение лимитов
+    budget_limits = {
+        "2025-07": {
+            "food": 50.0,
+            "transport": 100.0
+        }
     }
 
-    # 3. Сообщения
+    # 4. Сообщения
     messages = {
-        "budget_check_header": "\n=== Budget check for all time ===",
-        "budget_exceeded": "⚠️ Over budget for",
-        "budget_within_limits": "✅ Budget within limits.",
-        "category_total": "🔸 Category:",
-        "limit": "Limit:"
+        "over_limit": "{category} ❌ ${total:.2f} > ${limit:.2f}",
+        "no_limits_defined": "No limits defined for {month}",
     }
 
-    # 4. Запуск функции
-    check_budget_limits(expenses, monthly_limits, messages)
+    # 5. Вызов тестируемой функции
+    check_budget_limits(conn, budget_limits, messages)
 
-    # 5. Захватываем вывод
-    output = capsys.readouterr().out
+    # 6. Проверка вывода
+    captured = capsys.readouterr()
+    assert "food ❌ $60.00 > $50.00" in captured.out
+    assert "transport" not in captured.out
 
-    # 6. Проверка наличия ожидаемого вывода
-    assert "Over budget for food" in output
-    assert "60.00 > 50.00" in output
+    conn.close()
 
 def test_summarize_expenses(capsys):
     # 1. Фиктивные расходы
