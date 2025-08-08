@@ -422,6 +422,7 @@ def main():
 
     while True:
         print("\n" + messages["menu"])
+        print("6) Export to CSV")  # временно жёстко, можно перенести в messages позже
         choice = input(messages["select_option"])
 
         if choice == "1":
@@ -449,6 +450,24 @@ def main():
 
         elif choice == "5":
             update_budget_limits(budget_limits, categories, lang)
+
+        elif choice == "6":
+            # ── Export to CSV ──────────────────────────────────────────────
+            print("\n📤 Export to CSV")
+            # аккуратные промпты с пустым по умолчанию
+            start_date = input("Start date (YYYY-MM-DD) or Enter to skip: ").strip() or None
+            end_date   = input("End date   (YYYY-MM-DD) or Enter to skip: ").strip() or None
+            category   = input("Category (exact name) or Enter to include all: ").strip() or None
+
+            # куда сохраняем: рядом с БД, имя по дате
+            out_name = "export.csv"
+            out_path = os.path.join(os.getcwd(), out_name)
+
+            try:
+                export_to_csv(DATABASE_FILE, out_path, start_date=start_date, end_date=end_date, category=category)
+                print(f"✅ Exported to: {out_path}")
+            except Exception as e:
+                print(f"❌ Export failed: {e}")
 
         else:
             print(messages["invalid_option"])
