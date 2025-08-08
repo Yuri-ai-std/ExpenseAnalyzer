@@ -7,7 +7,9 @@ import json
 import project
 import pytest
 import tempfile
+import csv
 import sqlite3
+from project import export_to_csv
 from messages import messages
 from project import (
     add_expense,
@@ -247,5 +249,50 @@ def test_message_keys_exist(lang):
     ]
     for key in required_keys:
         assert key in messages[lang], f"Missing '{key}' in language: {lang}"
+
+def test_export_to_csv(tmp_path, monkeypatch, capsys):
+
+    # 1) Готовим временную БД в tmp_path с именем expenses.db
+    db_path = tmp_path / "expenses.db"
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+    rows = [
+        ("2025-07-20", "food", 10.0, "groceries"),
+        ("2025-07-22", "transport", 5.0, "bus"),
+        ("2025-07-25", "food", 7.0, "snack"),
+        ("2025-08-01", "groceries", 12.0, "market"),
+    ]
+    cur.executemany("INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)", rows)
+    conn.commit()
+    conn.close()
+
+    # 2) Меняем рабочую директорию, чтобы функция, если нужно, могла найти БД по относительному пути
+    monkeypatch.chdir(tmp_path)
+
+    # 3) Вызываем экспорт с фильтром дат и категории
+    out_csv = tmp_path / "export_july_food.csv"
+    export_to_csv(str(db_path), str(out_csv), start_date="2025-07-01", end_date="2025-07-31", category="food")
+
+    # 4) Читаем CSV и проверяем содержимое
+    with open(out_csv, newline="", encoding="utf-8") as f:
+        reader = list(csv.DictReader(f))
+    # Ожидаем 2 строки по категории food в июле
+    assert len(reader) == 2
+    dates = [r["date"] for r in reader]
+    cats = set(r["category"] for r in reader)
+    amounts = [float(r["amount"]) for r in reader]
+
+    assert dates == ["2025-07-20", "2025-07-25"]  # упорядочено по дате
+    assert cats == {"food"}
+    assert amounts == [10.0, 7.0]
 
 

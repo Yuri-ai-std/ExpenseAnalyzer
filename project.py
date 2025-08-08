@@ -3,6 +3,7 @@
 import json
 import os
 import sqlite3
+import csv
 from datetime import datetime
 from messages import messages as project_messages
 from collections import defaultdict
@@ -13,6 +14,45 @@ EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
 USE_SQLITE = True
 DATABASE_FILE = "expenses.db"
+
+def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=None):
+    """
+    Экспортирует расходы в CSV с опциональными фильтрами по дате и категории.
+    Колонки: date, category, amount, note. Сортировка по date ASC.
+    """
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # Базовый запрос + условия
+    query = """
+        SELECT date, category, amount, note
+        FROM expenses
+        WHERE 1=1
+    """
+    params = []
+
+    if start_date:
+        query += " AND date >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND date <= ?"
+        params.append(end_date)
+    if category:
+        query += " AND category = ?"
+        params.append(category)
+
+    query += " ORDER BY date ASC"
+
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+    conn.close()
+
+    # Запись CSV
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["date", "category", "amount", "note"])
+        for date, cat, amount, note in rows:
+            writer.writerow([date, cat, f"{float(amount):.2f}", note if note is not None else ""])
 
 def calculate_total_expenses(expenses):
     return sum(expense["amount"] for expense in expenses)
@@ -382,6 +422,7 @@ def main():
 
     while True:
         print("\n" + messages["menu"])
+        print("6) Export to CSV")  # временно жёстко, можно перенести в messages позже
         choice = input(messages["select_option"])
 
         if choice == "1":
@@ -409,6 +450,24 @@ def main():
 
         elif choice == "5":
             update_budget_limits(budget_limits, categories, lang)
+
+        elif choice == "6":
+            # ── Export to CSV ──────────────────────────────────────────────
+            print("\n📤 Export to CSV")
+            # аккуратные промпты с пустым по умолчанию
+            start_date = input("Start date (YYYY-MM-DD) or Enter to skip: ").strip() or None
+            end_date   = input("End date   (YYYY-MM-DD) or Enter to skip: ").strip() or None
+            category   = input("Category (exact name) or Enter to include all: ").strip() or None
+
+            # куда сохраняем: рядом с БД, имя по дате
+            out_name = "export.csv"
+            out_path = os.path.join(os.getcwd(), out_name)
+
+            try:
+                export_to_csv(DATABASE_FILE, out_path, start_date=start_date, end_date=end_date, category=category)
+                print(f"✅ Exported to: {out_path}")
+            except Exception as e:
+                print(f"❌ Export failed: {e}")
 
         else:
             print(messages["invalid_option"])
