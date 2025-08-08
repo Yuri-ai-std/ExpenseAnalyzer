@@ -3,6 +3,7 @@
 import json
 import os
 import sqlite3
+import csv
 from datetime import datetime
 from messages import messages as project_messages
 from collections import defaultdict
@@ -13,6 +14,45 @@ EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
 USE_SQLITE = True
 DATABASE_FILE = "expenses.db"
+
+def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=None):
+    """
+    Экспортирует расходы в CSV с опциональными фильтрами по дате и категории.
+    Колонки: date, category, amount, note. Сортировка по date ASC.
+    """
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # Базовый запрос + условия
+    query = """
+        SELECT date, category, amount, note
+        FROM expenses
+        WHERE 1=1
+    """
+    params = []
+
+    if start_date:
+        query += " AND date >= ?"
+        params.append(start_date)
+    if end_date:
+        query += " AND date <= ?"
+        params.append(end_date)
+    if category:
+        query += " AND category = ?"
+        params.append(category)
+
+    query += " ORDER BY date ASC"
+
+    cur.execute(query, tuple(params))
+    rows = cur.fetchall()
+    conn.close()
+
+    # Запись CSV
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["date", "category", "amount", "note"])
+        for date, cat, amount, note in rows:
+            writer.writerow([date, cat, f"{float(amount):.2f}", note if note is not None else ""])
 
 def calculate_total_expenses(expenses):
     return sum(expense["amount"] for expense in expenses)
