@@ -78,15 +78,20 @@ Total: $195.50
 
 Project Structure
 
-ExpenseAnalyzer/
+ExpenseAnalyzer_Restore/
 │
-├── project.py             # Main program logic
-├── test_project.py        # Pytest unit tests
-├── messages.py            # Multilingual messages
-├── expenses.json          # JSON storage (if not using SQLite)
-├── expenses.db            # SQLite database file
-├── requirements.txt       # Dependencies
-└── README.md              # Project documentation
+├── .gitignore               # Files and folders to ignore in Git
+├── budget_limits.json       # Stores monthly budget limits (JSON format)
+├── db.py                    # SQLite database integration functions
+├── expenses.db              # SQLite database file
+├── expenses.json            # Expenses data (JSON format, optional if using SQLite)
+├── messages.py              # Multi-language messages and prompts
+├── project.py               # Main application file (CLI interface)
+├── README.md                # Project documentation
+├── requirements.txt         # Python dependencies
+├── test_project.py          # Automated tests (pytest)
+├── utils.py                 # Utility functions (e.g., date parsing, validation)
+└── .pytest_cache/           # Pytest cache folder
 
 Testing
 
