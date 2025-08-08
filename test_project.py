@@ -139,53 +139,78 @@ def test_summarize_expenses(tmp_path, capsys):
     assert "food: $30.00" in out
     assert "transport: $15.00" in out
 
-def test_filter_expenses_by_date():
-    expenses = [
-        {"date": "2025-07-20", "category": "food", "amount": 10.0},
-        {"date": "2025-07-22", "category": "transport", "amount": 5.0},
-        {"date": "2025-07-25", "category": "food", "amount": 7.0},
-        {"date": "2025-08-01", "category": "groceries", "amount": 12.0}
-    ]
+def test_filter_expenses_by_date(tmp_path, monkeypatch):
 
-    start_date = "2025-07-21"
-    end_date = "2025-07-31"
+    # 1) Создаём временную БД с нужным именем, чтобы функция увидела её
+    db_path = tmp_path / "expenses.db"
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+    # записи: две в диапазоне и одна вне диапазона
+    cur.executemany(
+        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+        [
+            ("2025-07-20", "food", 10.0, ""),
+            ("2025-07-22", "transport", 5.0, ""),
+            ("2025-07-25", "food", 7.0, ""),
+            ("2025-08-01", "groceries", 12.0, ""),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    # 2) Переключаем текущую директорию на tmp_path, чтобы функция открыла наш expenses.db
+    monkeypatch.chdir(tmp_path)
 
     messages = {
         "filter_prompt": "🗂️ Filtering by date range...",
         "expense_summary": "📊 Expense Summary",
         "category_total": "🧾 ",
-        "note": "📝 Note:"
+        "note": "📝 Note:",
     }
 
-    from project import filter_expenses_by_date
-    filtered = filter_expenses_by_date(expenses, messages, start_date, end_date)
+    # 3) Вызов (новая сигнатура)
+    start_date = "2025-07-21"
+    end_date = "2025-07-31"
+    filtered = filter_expenses_by_date(start_date, end_date, messages)
 
-    expected = [
-        {"date": "2025-07-22", "category": "transport", "amount": 5.0},
-        {"date": "2025-07-25", "category": "food", "amount": 7.0}
-    ]
+    # 4) Проверки: попали только две записи за 2025-07-22 и 2025-07-25
+    assert len(filtered) == 2
+    dates = {e["date"] for e in filtered}
+    assert dates == {"2025-07-22", "2025-07-25"}
 
     assert filtered == expected
 
 def test_save_and_load_expenses(tmp_path):
+
     test_expenses = [
         {"date": "2025-07-20", "category": "food", "amount": 10.0, "note": "test1"},
-        {"date": "2025-07-21", "category": "transport", "amount": 5.5, "note": "test2"}
+        {"date": "2025-07-21", "category": "transport", "amount": 5.5, "note": "test2"},
     ]
 
-    # Путь к временной директории
     file_path = tmp_path / "expenses_test.json"
 
-    # Импорт с заменой пути
-    import project
-    original_path = project.EXPENSES_FILE if hasattr(project, "EXPENSES_FILE") else "expenses.json"
-    project.save_expenses(test_expenses, str(file_path))
-    loaded = project.load_expenses(str(file_path))
+    # временно переключаемся на JSON-режим
+    old_flag = getattr(project, "USE_SQLITE", True)
+    project.USE_SQLITE = False
+
+    try:
+        project.save_expenses(test_expenses, str(file_path))
+        with open(file_path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+    finally:
+        # возвращаем флаг в исходное состояние
+        project.USE_SQLITE = old_flag
 
     assert loaded == test_expenses
-
-    # Восстановление переменной (на всякий случай)
-    project.EXPENSES_FILE = original_path
 
 def test_load_and_save_monthly_limits():
     # 📦 Подготовка тестовых данных
