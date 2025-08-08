@@ -138,39 +138,54 @@ def test_summarize_expenses(tmp_path, capsys):
     assert "food: $30.00" in out
     assert "transport: $15.00" in out
 
-def test_filter_expenses_by_date(tmp_path):
-    # Создаём тестовые расходы
-    expenses = [
-        {"date": "2025-07-21", "category": "food", "amount": 20.0, "note": "groceries"},
-        {"date": "2025-07-22", "category": "food", "amount": 10.0, "note": ""},
-        {"date": "2025-08-01", "category": "transport", "amount": 15.0, "note": "bus ticket"},
-    ]
-
-    # Сохраняем их во временную базу данных
-    db_path = tmp_path / "expenses.db"
+def test_filter_expenses_by_date(tmp_path, monkeypatch):
     import sqlite3
+    from project import filter_expenses_by_date
+
+    # 1) Создаём временную БД в tmp_path с именем, которое ожидает функция
+    db_path = tmp_path / "expenses.db"
     conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("CREATE TABLE expenses (date TEXT, category TEXT, amount REAL, note TEXT)")
-    cursor.executemany("INSERT INTO expenses VALUES (?, ?, ?, ?)", [
-        (e["date"], e["category"], e["amount"], e["note"]) for e in expenses
-    ])
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+    cur.executemany(
+        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+        [
+            ("2025-07-20", "food", 10.0, ""),
+            ("2025-07-22", "transport", 5.0, ""),
+            ("2025-07-25", "food", 7.0, ""),
+            ("2025-08-01", "groceries", 12.0, ""),
+        ],
+    )
     conn.commit()
     conn.close()
 
-    # Импортируем функцию для фильтрации
-    from project import filter_expenses_by_date
+    # 2) Переключаем рабочую директорию, чтобы функция открыла наш expenses.db
+    monkeypatch.chdir(tmp_path)
 
-    # Фильтруем с 21 по 22 июля 2025
-    filtered = filter_expenses_by_date(expenses, "2025-07-21", "2025-07-22")
+    messages = {
+        "filter_prompt": "🗂️ Filtering by date range...",
+        "expense_summary": "📊 Expense Summary",
+        "category_total": "🧾 ",
+        "note": "📝 Note:",
+    }
 
-    # Ожидаемый результат
-    expected = [
-        {"date": "2025-07-21", "category": "food", "amount": 20.0, "note": "groceries"},
-        {"date": "2025-07-22", "category": "food", "amount": 10.0, "note": ""}
-    ]
+    # 3) ВАЖНО: новый порядок аргументов — (start_date, end_date, messages)
+    start_date = "2025-07-21"
+    end_date = "2025-07-31"
+    filtered = filter_expenses_by_date(start_date, end_date, messages)
 
-    assert filtered == expected
+    # 4) Проверки: попали только записи 2025-07-22 и 2025-07-25
+    assert len(filtered) == 2
+    dates = {e["date"] for e in filtered}
+    assert dates == {"2025-07-22", "2025-07-25"}
 
 def test_save_and_load_expenses(tmp_path):
 
