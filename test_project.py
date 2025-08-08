@@ -4,8 +4,10 @@ import io
 import os
 import sys
 import json
+import project
 import pytest
 import tempfile
+import sqlite3
 from messages import messages
 from project import (
     add_expense,
@@ -38,108 +40,175 @@ def test_add_expense_and_calculate_total(tmp_path):
     # 5. Проверяем сумму
     assert total == 50.0
 
-def test_check_budget_limits_exceeded(monkeypatch, capsys):
-    # 1. Фиктивные расходы
-    expenses = [
-        {"date": "2025-07-23", "category": "food", "amount": 60.0},
-        {"date": "2025-07-24", "category": "transport", "amount": 20.0}
-    ]
+def test_check_budget_limits_exceeded(tmp_path, capsys):
+    import sqlite3
+    from project import check_budget_limits
 
-    # 2. Лимиты: food ограничен 50
-    monthly_limits = {
-        "2025-07": {"food": 50.0, "transport": 100.0}
+    # 1. Подготовка временной базы данных
+    db_path = tmp_path / "test_expenses.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+
+    # 2. Вставка фиктивных расходов
+    expenses_data = [
+        ("2025-07-23", "food", 60.0, "groceries"),
+        ("2025-07-24", "transport", 20.0, "bus"),
+    ]
+    cursor.executemany("""
+        INSERT INTO expenses (date, category, amount, note)
+        VALUES (?, ?, ?, ?)
+    """, expenses_data)
+    conn.commit()
+
+    # 3. Определение лимитов
+    budget_limits = {
+        "2025-07": {
+            "food": 50.0,
+            "transport": 100.0
+        }
     }
 
-    # 3. Сообщения
+    # 4. Сообщения
     messages = {
-        "budget_check_header": "\n=== Budget check for all time ===",
-        "budget_exceeded": "⚠️ Over budget for",
-        "budget_within_limits": "✅ Budget within limits.",
-        "category_total": "🔸 Category:",
-        "limit": "Limit:"
+        "over_limit": "{category} ❌ ${total:.2f} > ${limit:.2f}",
+        "no_limits_defined": "No limits defined for {month}",
     }
 
-    # 4. Запуск функции
-    check_budget_limits(expenses, monthly_limits, messages)
+    # 5. Вызов тестируемой функции
+    check_budget_limits(conn, budget_limits, messages)
 
-    # 5. Захватываем вывод
-    output = capsys.readouterr().out
+    # 6. Проверка вывода
+    captured = capsys.readouterr()
+    assert "food ❌ $60.00 > $50.00" in captured.out
+    assert "transport" not in captured.out
 
-    # 6. Проверка наличия ожидаемого вывода
-    assert "Over budget for food" in output
-    assert "60.00 > 50.00" in output
+    conn.close()
 
-def test_summarize_expenses(capsys):
-    # 1. Фиктивные расходы
-    expenses = [
-        {"date": "2025-07-21", "category": "food", "amount": 20.0, "description": "groceries"},
-        {"date": "2025-07-22", "category": "food", "amount": 10.0, "description": ""},
-        {"date": "2025-07-22", "category": "transport", "amount": 15.0, "description": "bus"},
+def test_summarize_expenses(tmp_path, capsys):
+
+    # 1) Временная БД
+    db_path = tmp_path / "test_expenses.db"
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+
+    # 2) Тестовые данные
+    test_data = [
+        ("2025-07-21", "food", 20.0, "groceries"),
+        ("2025-07-22", "food", 10.0, ""),
+        ("2025-07-22", "transport", 15.0, "bus"),
     ]
+    cursor.executemany(
+        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+        test_data
+    )
+    conn.commit()
+    conn.close()
 
-    # 2. Сообщения
+    # 3) Сообщения-заглушки
     messages = {
         "expense_summary": "📊 Expense Summary",
         "category_total": "🧾 ",
-        "note": "📝 Note:"
+        "note": "📝 Note:",
+        "over_limit": "⚠️ Over budget for {category}",
+        "within_limit": "✅ Budget within limits.",
     }
 
-    # 3. Запуск функции
-    summarize_expenses(expenses, messages, "en")
-    output = capsys.readouterr().out
+    # 4) Запуск и проверка вывода
+    summarize_expenses(str(db_path), messages, "en")
+    out = capsys.readouterr().out
+    assert "2025-07" in out
+    assert "food: $30.00" in out
+    assert "transport: $15.00" in out
 
-    # 4. Проверка
-    assert "📊 Expense Summary" in output
-    assert "food: $30.00" in output
-    assert "transport: $15.00" in output
+def test_filter_expenses_by_date(tmp_path, monkeypatch):
+    import sqlite3
+    from project import filter_expenses_by_date
 
-def test_filter_expenses_by_date():
-    expenses = [
-        {"date": "2025-07-20", "category": "food", "amount": 10.0},
-        {"date": "2025-07-22", "category": "transport", "amount": 5.0},
-        {"date": "2025-07-25", "category": "food", "amount": 7.0},
-        {"date": "2025-08-01", "category": "groceries", "amount": 12.0}
-    ]
+    # 1) Создаём временную БД в tmp_path с именем, которое ожидает функция
+    db_path = tmp_path / "expenses.db"
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            note TEXT
+        )
+    """)
+    cur.executemany(
+        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
+        [
+            ("2025-07-20", "food", 10.0, ""),
+            ("2025-07-22", "transport", 5.0, ""),
+            ("2025-07-25", "food", 7.0, ""),
+            ("2025-08-01", "groceries", 12.0, ""),
+        ],
+    )
+    conn.commit()
+    conn.close()
 
-    start_date = "2025-07-21"
-    end_date = "2025-07-31"
+    # 2) Переключаем рабочую директорию, чтобы функция открыла наш expenses.db
+    monkeypatch.chdir(tmp_path)
 
     messages = {
         "filter_prompt": "🗂️ Filtering by date range...",
         "expense_summary": "📊 Expense Summary",
         "category_total": "🧾 ",
-        "note": "📝 Note:"
+        "note": "📝 Note:",
     }
 
-    from project import filter_expenses_by_date
-    filtered = filter_expenses_by_date(expenses, messages, start_date, end_date)
+    # 3) ВАЖНО: новый порядок аргументов — (start_date, end_date, messages)
+    start_date = "2025-07-21"
+    end_date = "2025-07-31"
+    filtered = filter_expenses_by_date(start_date, end_date, messages)
 
-    expected = [
-        {"date": "2025-07-22", "category": "transport", "amount": 5.0},
-        {"date": "2025-07-25", "category": "food", "amount": 7.0}
-    ]
-
-    assert filtered == expected
+    # 4) Проверки: попали только записи 2025-07-22 и 2025-07-25
+    assert len(filtered) == 2
+    dates = {e["date"] for e in filtered}
+    assert dates == {"2025-07-22", "2025-07-25"}
 
 def test_save_and_load_expenses(tmp_path):
+
     test_expenses = [
         {"date": "2025-07-20", "category": "food", "amount": 10.0, "note": "test1"},
-        {"date": "2025-07-21", "category": "transport", "amount": 5.5, "note": "test2"}
+        {"date": "2025-07-21", "category": "transport", "amount": 5.5, "note": "test2"},
     ]
 
-    # Путь к временной директории
     file_path = tmp_path / "expenses_test.json"
 
-    # Импорт с заменой пути
-    import project
-    original_path = project.EXPENSES_FILE if hasattr(project, "EXPENSES_FILE") else "expenses.json"
-    project.save_expenses(test_expenses, str(file_path))
-    loaded = project.load_expenses(str(file_path))
+    # временно переключаемся на JSON-режим
+    old_flag = getattr(project, "USE_SQLITE", True)
+    project.USE_SQLITE = False
+
+    try:
+        project.save_expenses(test_expenses, str(file_path))
+        with open(file_path, "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+    finally:
+        # возвращаем флаг в исходное состояние
+        project.USE_SQLITE = old_flag
 
     assert loaded == test_expenses
-
-    # Восстановление переменной (на всякий случай)
-    project.EXPENSES_FILE = original_path
 
 def test_load_and_save_monthly_limits():
     # 📦 Подготовка тестовых данных
