@@ -4,6 +4,7 @@ import io
 import os
 import sys
 import json
+import project
 import pytest
 import tempfile
 import sqlite3
@@ -93,8 +94,6 @@ def test_check_budget_limits_exceeded(tmp_path, capsys):
     conn.close()
 
 def test_summarize_expenses(tmp_path, capsys):
-    import sqlite3
-    from project import summarize_expenses
 
     # 1) Временная БД
     db_path = tmp_path / "test_expenses.db"
@@ -139,53 +138,37 @@ def test_summarize_expenses(tmp_path, capsys):
     assert "food: $30.00" in out
     assert "transport: $15.00" in out
 
-def test_filter_expenses_by_date(tmp_path, monkeypatch):
+def test_filter_expenses_by_date(tmp_path):
+    # Создаём тестовые расходы
+    expenses = [
+        {"date": "2025-07-21", "category": "food", "amount": 20.0, "note": "groceries"},
+        {"date": "2025-07-22", "category": "food", "amount": 10.0, "note": ""},
+        {"date": "2025-08-01", "category": "transport", "amount": 15.0, "note": "bus ticket"},
+    ]
 
-    # 1) Создаём временную БД с нужным именем, чтобы функция увидела её
+    # Сохраняем их во временную базу данных
     db_path = tmp_path / "expenses.db"
+    import sqlite3
     conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
-            category TEXT,
-            amount REAL,
-            note TEXT
-        )
-    """)
-    # записи: две в диапазоне и одна вне диапазона
-    cur.executemany(
-        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
-        [
-            ("2025-07-20", "food", 10.0, ""),
-            ("2025-07-22", "transport", 5.0, ""),
-            ("2025-07-25", "food", 7.0, ""),
-            ("2025-08-01", "groceries", 12.0, ""),
-        ],
-    )
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE expenses (date TEXT, category TEXT, amount REAL, note TEXT)")
+    cursor.executemany("INSERT INTO expenses VALUES (?, ?, ?, ?)", [
+        (e["date"], e["category"], e["amount"], e["note"]) for e in expenses
+    ])
     conn.commit()
     conn.close()
 
-    # 2) Переключаем текущую директорию на tmp_path, чтобы функция открыла наш expenses.db
-    monkeypatch.chdir(tmp_path)
+    # Импортируем функцию для фильтрации
+    from project import filter_expenses_by_date
 
-    messages = {
-        "filter_prompt": "🗂️ Filtering by date range...",
-        "expense_summary": "📊 Expense Summary",
-        "category_total": "🧾 ",
-        "note": "📝 Note:",
-    }
+    # Фильтруем с 21 по 22 июля 2025
+    filtered = filter_expenses_by_date(expenses, "2025-07-21", "2025-07-22")
 
-    # 3) Вызов (новая сигнатура)
-    start_date = "2025-07-21"
-    end_date = "2025-07-31"
-    filtered = filter_expenses_by_date(start_date, end_date, messages)
-
-    # 4) Проверки: попали только две записи за 2025-07-22 и 2025-07-25
-    assert len(filtered) == 2
-    dates = {e["date"] for e in filtered}
-    assert dates == {"2025-07-22", "2025-07-25"}
+    # Ожидаемый результат
+    expected = [
+        {"date": "2025-07-21", "category": "food", "amount": 20.0, "note": "groceries"},
+        {"date": "2025-07-22", "category": "food", "amount": 10.0, "note": ""}
+    ]
 
     assert filtered == expected
 
