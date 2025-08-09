@@ -105,38 +105,38 @@ def save_expenses(expenses, file_path=EXPENSES_FILE):
 
 
 def add_expense(messages, lang, budget_limits, categories):
-    print(messages[lang]["enter_category"])
+    print(messages["enter_category"])
     for i, cat in enumerate(categories):
         print(f"{i + 1}. {cat}")
 
     try:
         cat_choice = int(input("> ")) - 1
         if cat_choice not in range(len(categories)):
-            print(messages[lang]["invalid_category"])
+            print(messages["invalid_category"])
             return
         category = categories[cat_choice]
     except ValueError:
-        print(messages[lang]["invalid_category"])
+        print(messages["invalid_category"])
         return
 
     try:
         amount = float(input(messages[lang]["enter_amount"] + " "))
     except ValueError:
-        print(messages[lang]["invalid_amount"])
+        print(messages["invalid_amount"])
         return
 
-    description = input(messages[lang]["enter_description"] + " ")
-    date_str = input(messages[lang]["enter_date"] + " ")
+    description = input(messages["enter_description"] + " ")
+    date_str = input(messages["enter_date"] + " ")
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        print(messages[lang]["invalid_date"])
+        print(messages["invalid_date"])
         return
 
     # 💾 Сохраняем в SQLite, вместо списка
     add_expense_to_db(str(date), category, amount, description)
 
-    print(messages[lang]["expense_added"])
+    print(messages["expense_added"])
 
 
 def summarize_expenses(db_path, messages, lang, budget_limits=None, by_date=False):
@@ -226,6 +226,12 @@ def get_valid_date(prompt, messages):
 
 
 def filter_expenses_by_date(start_date=None, end_date=None, messages=None):
+    # ✅ Фолбэк на английские сообщения, если messages не передан
+    if messages is None:
+        from messages import messages as project_messages
+
+        messages = project_messages["en"]
+
     print(messages["filter_prompt"])
 
     if start_date is None:
@@ -235,7 +241,6 @@ def filter_expenses_by_date(start_date=None, end_date=None, messages=None):
 
     conn = sqlite3.connect("expenses.db")
     cursor = conn.cursor()
-
     cursor.execute(
         """
         SELECT date, category, amount, note
@@ -245,7 +250,6 @@ def filter_expenses_by_date(start_date=None, end_date=None, messages=None):
         """,
         (start_date, end_date),
     )
-
     rows = cursor.fetchall()
     conn.close()
 
@@ -253,14 +257,10 @@ def filter_expenses_by_date(start_date=None, end_date=None, messages=None):
         print(messages["no_expenses_found"])
         return []
 
-    expenses = []
-    for row in rows:
-        date, category, amount, note = row
-        expenses.append(
-            {"date": date, "category": category, "amount": amount, "note": note}
-        )
+    expenses = [
+        {"date": d, "category": c, "amount": a, "note": n} for (d, c, a, n) in rows
+    ]
 
-    summarize_expenses("expenses.db", messages, "en")
     return expenses
 
 
@@ -306,19 +306,6 @@ def show_summary(expenses, messages):
 
     print(messages["total_expenses"].format(total=total))
     input(messages["press_enter_to_continue"])
-
-
-def load_monthly_limits(filename=BUDGET_LIMITS_FILE):
-    if os.path.exists(filename):
-        with open(filename, "r") as f:
-            return json.load(f)
-    else:
-        return {}
-
-
-def save_monthly_limits(budget_limits, filename=BUDGET_LIMITS_FILE):
-    with open(filename, "w") as file:
-        json.dump(budget_limits, file, indent=4)
 
 
 def show_monthly_summary(expenses, messages):
@@ -460,7 +447,7 @@ def main():
         choice = input(messages["select_option"])
 
         if choice == "1":
-            add_expense(expenses, messages, lang, budget_limits, categories)
+            add_expense(messages, lang, budget_limits, categories)
 
         elif choice == "2":
             filter_choice = input(messages["filter_prompt"]).lower()
