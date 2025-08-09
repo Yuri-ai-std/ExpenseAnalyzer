@@ -10,7 +10,7 @@ from collections import defaultdict
 from utils import load_monthly_limits, save_monthly_limits
 from db import (
     get_conn,
-    init_db,
+    initialize_db,
     migrate_json_to_sqlite,
     add_expense_to_db,
     get_all_expenses,
