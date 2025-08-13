@@ -1,20 +1,15 @@
 {
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-    // Тесты
     "python.testing.pytestEnabled": true,
     "python.testing.pytestArgs": [
         "."
     ],
     "python.testing.unittestEnabled": false,
-    // Линтинг и форматирование
     "python.linting.enabled": true,
     "python.linting.pylintEnabled": true,
     "editor.formatOnSave": true,
-    // Используем Black как дефолтный форматтер (ID расширения)
     "editor.defaultFormatter": "ms-python.black-formatter",
-    // Чуть мягче тип-чекинг, чтобы не получать ложных срабатываний
     "python.analysis.typeCheckingMode": "basic",
-    // Скрываем мусорные папки
     "files.exclude": {
         "**/__pycache__": true,
         "**/.pytest_cache": true
