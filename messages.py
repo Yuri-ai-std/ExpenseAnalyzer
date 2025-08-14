@@ -17,6 +17,8 @@ messages = {
         "invalid_category": "Invalid category.",
         "enter_amount": "Enter amount: ",
         "enter_description": "Enter description: ",
+        "enter_date": "Enter date (YYYY-MM-DD): ",
+        "invalid_date": "Invalid date! Please use YYYY-MM-DD format.",
         "expense_added": "Expense added successfully.",
         "press_enter_to_continue": "Press Enter to continue...",
         "add_expense_header": "\n--- Add Expense ---",
@@ -46,7 +48,7 @@ messages = {
         "tip_1": "Track all expenses daily.",
         "tip_2": "Set realistic monthly budgets.",
         "tip_3": "Review your spending weekly.",
-        "goodbye": "Goodbye!"
+        "goodbye": "Goodbye!",
     },
     "fr": {
         "select_option": "Choisissez une option (1–5): ",
@@ -64,6 +66,8 @@ messages = {
         "invalid_category": "Catégorie invalide.",
         "enter_amount": "Entrez le montant : ",
         "enter_description": "Entrez la description : ",
+        "enter_date": "Entrez la date (AAAA-MM-JJ) : ",
+        "invalid_date": "❗ Format de date invalide. Veuillez utiliser AAAA-MM-JJ.",
         "expense_added": "Dépense ajoutée avec succès.",
         "press_enter_to_continue": "Appuyez sur Entrée pour continuer...",
         "add_expense_header": "\n--- Ajouter une dépense ---",
@@ -93,7 +97,7 @@ messages = {
         "tip_1": "Suivez toutes vos dépenses quotidiennement.",
         "tip_2": "Établissez des budgets mensuels réalistes.",
         "tip_3": "Examinez vos dépenses chaque semaine.",
-        "goodbye": "Au revoir !"
+        "goodbye": "Au revoir !",
     },
     "es": {
         "select_option": "Elige una opción (1–5): ",
@@ -111,6 +115,8 @@ messages = {
         "invalid_category": "Categoría inválida.",
         "enter_amount": "Introduce el monto: ",
         "enter_description": "Introduce la descripción: ",
+        "enter_date": "Introduce la fecha (AAAA-MM-DD): ",
+        "invalid_date": "❗ Fecha inválida. Por favor, utiliza el formato AAAA-MM-DD.",
         "expense_added": "Gasto añadido con éxito.",
         "press_enter_to_continue": "Presiona Enter para continuar...",
         "add_expense_header": "\n--- Añadir gasto ---",
@@ -140,13 +146,6 @@ messages = {
         "tip_1": "Registra todos los gastos diariamente.",
         "tip_2": "Establece presupuestos mensuales realistas.",
         "tip_3": "Revisa tus gastos semanalmente.",
-        "goodbye": "¡Adiós!"
-    }
+        "goodbye": "¡Adiós!",
+    },
 }
-
-
-
-
-
-
-
