@@ -260,37 +260,37 @@ def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=No
 
 
 def add_expense(messages, lang, budget_limits, categories):
-    print(messages[lang]["enter_category"])
+    print(messages["enter_category"])
     for i, cat in enumerate(categories):
         print(f"{i + 1}. {cat}")
 
     try:
         cat_choice = int(input("> ")) - 1
         if cat_choice not in range(len(categories)):
-            print(messages[lang]["invalid_category"])
+            print(messages["invalid_category"])
             return
         category = categories[cat_choice]
     except ValueError:
-        print(messages[lang]["invalid_category"])
+        print(messages["invalid_category"])
         return
 
     try:
-        amount = float(input(messages[lang]["enter_amount"] + " "))
+        amount = float(input(messages["enter_amount"] + " "))
     except ValueError:
-        print(messages[lang]["invalid_amount"])
+        print(messages["invalid_amount"])
         return
 
-    description = input(messages[lang]["enter_description"] + " ")
-    date_str = input(messages[lang]["enter_date"] + " ")
+    description = input(messages["enter_description"] + " ")
+    date_str = input(messages["enter_date"] + " ")
     try:
         date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        print(messages[lang]["invalid_date"])
+        print(messages["invalid_date"])
         return
 
     # сохраняем сразу в SQLite
     add_expense_to_db(str(date), category, amount, description)
-    print(messages[lang]["expense_added"])
+    print(messages["expense_added"])
 
 
 # --------------------------- main меню ---------------------------
