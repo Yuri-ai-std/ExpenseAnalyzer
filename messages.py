@@ -17,6 +17,8 @@ messages = {
         "invalid_category": "Invalid category.",
         "enter_amount": "Enter amount: ",
         "enter_description": "Enter description: ",
+        "enter_date": "Enter date (YYYY-MM-DD): ",
+        "invalid_date": "Invalid date! Please use YYYY-MM-DD format.",
         "expense_added": "Expense added successfully.",
         "press_enter_to_continue": "Press Enter to continue...",
         "add_expense_header": "\n--- Add Expense ---",
@@ -38,6 +40,8 @@ messages = {
         "invalid_amount": "Invalid amount. Please enter a number.",
         "enter_category": "Enter the category to update: ",
         "enter_new_limit": "Enter new limit for {category} in {month}: ",
+        "over_limit": "⚠️ Over budget for {category} in {month}: ${total:.2f} > Limit ${limit:.2f}",
+        "no_limits_defined": "No monthly limits defined for {month}.",
         "budget_limit_updated": "Budget limits updated successfully.",
         "limit_updated": "Limit updated successfully.",
         "category_not_found": "❗ Category '{category}' not found for month {month}. Please try again.",
@@ -46,7 +50,7 @@ messages = {
         "tip_1": "Track all expenses daily.",
         "tip_2": "Set realistic monthly budgets.",
         "tip_3": "Review your spending weekly.",
-        "goodbye": "Goodbye!"
+        "goodbye": "Goodbye!",
     },
     "fr": {
         "select_option": "Choisissez une option (1–5): ",
@@ -64,6 +68,8 @@ messages = {
         "invalid_category": "Catégorie invalide.",
         "enter_amount": "Entrez le montant : ",
         "enter_description": "Entrez la description : ",
+        "enter_date": "Entrez la date (AAAA-MM-JJ) : ",
+        "invalid_date": "❗ Format de date invalide. Veuillez utiliser AAAA-MM-JJ.",
         "expense_added": "Dépense ajoutée avec succès.",
         "press_enter_to_continue": "Appuyez sur Entrée pour continuer...",
         "add_expense_header": "\n--- Ajouter une dépense ---",
@@ -85,6 +91,8 @@ messages = {
         "invalid_amount": "Montant invalide. Veuillez entrer un nombre.",
         "enter_category": "Entrez la catégorie à modifier : ",
         "enter_new_limit": "Entrez la nouvelle limite pour {category} en {month} : ",
+        "over_limit": "⚠️ Dépassement de budget pour {category} en {month} : {total:.2f} $ > Limite {limit:.2f} $",
+        "no_limits_defined": "Aucune limite mensuelle définie pour {month}.",
         "budget_limit_updated": "Les limites budgétaires ont été mises à jour avec succès.",
         "limit_updated": "Limite mise à jour avec succès.",
         "category_not_found": "❗ Catégorie '{category}' introuvable pour le mois de {month}. Veuillez réessayer.",
@@ -93,7 +101,7 @@ messages = {
         "tip_1": "Suivez toutes vos dépenses quotidiennement.",
         "tip_2": "Établissez des budgets mensuels réalistes.",
         "tip_3": "Examinez vos dépenses chaque semaine.",
-        "goodbye": "Au revoir !"
+        "goodbye": "Au revoir !",
     },
     "es": {
         "select_option": "Elige una opción (1–5): ",
@@ -111,6 +119,8 @@ messages = {
         "invalid_category": "Categoría inválida.",
         "enter_amount": "Introduce el monto: ",
         "enter_description": "Introduce la descripción: ",
+        "enter_date": "Introduce la fecha (AAAA-MM-DD): ",
+        "invalid_date": "❗ Fecha inválida. Por favor, utiliza el formato AAAA-MM-DD.",
         "expense_added": "Gasto añadido con éxito.",
         "press_enter_to_continue": "Presiona Enter para continuar...",
         "add_expense_header": "\n--- Añadir gasto ---",
@@ -132,6 +142,8 @@ messages = {
         "invalid_amount": "Cantidad inválida. Por favor, introduzca un número.",
         "enter_category": "Ingrese la categoría a modificar: ",
         "enter_new_limit": "Ingrese el nuevo límite para {category} en {month}: ",
+        "over_limit": "⚠️ Exceso de presupuesto para {category} en {month}: ${total:.2f} > ímite ${limit:.2f}",
+        "no_limits_defined": "No se han definido límites mensuales para {month}.",
         "budget_limit_updated": "Los límites de presupuesto se han actualizado correctamente.",
         "limit_updated": "Límite actualizado con éxito.",
         "category_not_found": "❗ Categoría '{category}' no encontrada para el mes {month}. Por favor, inténtalo de nuevo.",
@@ -140,13 +152,6 @@ messages = {
         "tip_1": "Registra todos los gastos diariamente.",
         "tip_2": "Establece presupuestos mensuales realistas.",
         "tip_3": "Revisa tus gastos semanalmente.",
-        "goodbye": "¡Adiós!"
-    }
+        "goodbye": "¡Adiós!",
+    },
 }
-
-
-
-
-
-
-

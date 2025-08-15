@@ -1,38 +1,38 @@
 {
-    "2025-10": {
-        "food": 150.0,
-        "transport": 67.89,
-        "entertainment": 120.55,
-        "utilities": 88.88,
-        "rent": 999.99,
-        "groceries": 111.11,
-        "other": 0.01
-    },
-    "2025-07": {
-        "food": 220.0,
-        "transport": 180.0,
-        "entertainment": 150.0,
-        "utilities": 100.0,
-        "rent": 650.0,
-        "groceries": 300.0,
-        "other": 120.0
-    },
-    "2024-07": {
-        "food": 110.0,
-        "transport": 120.0,
-        "entertainment": 200.0,
-        "utilities": 140.0,
-        "rent": 999.99,
-        "groceries": 270.0,
-        "other": 150.0
-    },
-    "2024-11": {
-        "food": 105.0,
-        "transport": 180.0,
-        "entertainment": 250.0,
-        "utilities": 300.0,
-        "rent": 999.99,
-        "groceries": 350.0,
-        "other": 120.0
-    }
+  "2025-10": {
+    "food": 150.0,
+    "transport": 67.89,
+    "entertainment": 120.55,
+    "utilities": 88.88,
+    "rent": 999.99,
+    "groceries": 111.11,
+    "other": 0.01
+  },
+  "2025-07": {
+    "food": 220.0,
+    "transport": 180.0,
+    "entertainment": 150.0,
+    "utilities": 100.0,
+    "rent": 650.0,
+    "groceries": 300.0,
+    "other": 120.0
+  },
+  "2024-07": {
+    "food": 110.0,
+    "transport": 120.0,
+    "entertainment": 200.0,
+    "utilities": 140.0,
+    "rent": 999.99,
+    "groceries": 270.0,
+    "other": 150.0
+  },
+  "2024-11": {
+    "food": 105.0,
+    "transport": 180.0,
+    "entertainment": 250.0,
+    "utilities": 300.0,
+    "rent": 999.99,
+    "groceries": 350.0,
+    "other": 120.0
+  }
 }
