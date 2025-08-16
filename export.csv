@@ -1,0 +1,140 @@
+date,category,amount,note
+2024-01-02,food,12.34,coffee
+2024-01-02,food,12.34,test
+2024-01-02,food,12.34,test
+2024-01-02,food,12.34,test
+2024-01-02,food,12.34,coffee
+2024-01-02,food,12.34,coffee
+2024-01-02,food,12.34,café
+2024-01-02,food,12.34,café
+2024-01-15,other,9.99,note
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-07-23,food,12.5,Lunch at café
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-08-10,transport,20.0,Metro card
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-09-01,utilities,55.25,Electric bill
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-10-15,entertainment,30.0,Movie tickets
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
+2024-11-25,groceries,100.0,Weekly shopping
