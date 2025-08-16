@@ -83,8 +83,17 @@ check_messages() {
   ok "messages.py компилируется"
 
   info "Поиск дубликатов ключей в messages.py (только по тексту файла)"
-  # ищем повторяющиеся строковые ключи "ключ":
-  dups="$(grep -Po '^\s*"\K[^"]+(?=":\s*)' messages.py | sort | uniq -d || true)"
+  # (замена grep -P на Python, совместимо с macOS/BSD)
+  dups="$(
+    python3 - <<'PY'
+import re, collections, sys
+text = open('messages.py', 'r', encoding='utf-8').read()
+# Ищем строковые ключи вида "key":
+keys = re.findall(r'^\s*"([^"]+)"\s*:', text, flags=re.M)
+dup = [k for k, c in collections.Counter(keys).items() if c > 1]
+print("\n".join(dup))
+PY
+  )"
   if [[ -n "${dups}" ]]; then
     echo "Найдены дубликаты:"
     echo "${dups}"
