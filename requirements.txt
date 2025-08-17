@@ -1,3 +1,6 @@
 #  requirements.txt
 
 pytest==8.1.1
+pandas==2.2.2
+matplotlib==3.8.4pandas>=2.0
+matplotlib>=3.7

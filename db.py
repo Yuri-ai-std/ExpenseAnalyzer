@@ -1,9 +1,12 @@
 # db.py — SQLite backend for ExpenseAnalyzer
 
+from __future__ import annotations
 import json
 import os
 import sqlite3
+import pandas as pd
 from typing import Dict, List, Tuple
+from typing import Optional, Sequence
 
 DB_PATH = "expenses.db"
 EXPENSES_JSON = "expenses.json"
@@ -193,3 +196,105 @@ def save_monthly_limits(
 
     conn.commit()
     conn.close()
+
+
+# ---------- DataFrame helpers (date, category, amount, description) ----------
+
+
+def get_expenses_df(
+    db_path: str,
+    start_date: Optional[str] = None,  # 'YYYY-MM-DD'
+    end_date: Optional[str] = None,  # 'YYYY-MM-DD'
+    category: Optional[str] = None,  # одна категория
+    categories: Optional[Sequence[str]] = None,  # несколько категорий
+) -> pd.DataFrame:
+    """
+    Возвращает расходы как pandas.DataFrame c типами:
+      - date: datetime64[ns]
+      - category: str
+      - amount: float
+      - description: str
+    """
+    con = sqlite3.connect(db_path)
+    try:
+        where, params = [], []
+
+        if start_date:
+            where.append("date >= ?")
+            params.append(start_date)
+        if end_date:
+            where.append("date <= ?")
+            params.append(end_date)
+        if category:
+            where.append("category = ?")
+            params.append(category)
+        elif categories:
+            placeholders = ",".join("?" for _ in categories)
+            where.append(f"category IN ({placeholders})")
+            params.extend(list(categories))
+
+        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+        q = f"""
+            SELECT date, category, amount, description
+            FROM expenses
+            {where_sql}
+            ORDER BY date ASC
+        """
+
+        df = pd.read_sql_query(q, con, params=params)
+
+        if df.empty:
+            # пустой DF, но с правильными типами
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
+                    "category": pd.Series([], dtype="string"),
+                    "amount": pd.Series([], dtype="float"),
+                    "description": pd.Series([], dtype="string"),
+                }
+            )
+
+        # даты
+        df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d", errors="coerce")
+        df = df.dropna(subset=["date"])
+
+        # amount — в два шага, чтобы не бесил Pylance
+        s = pd.to_numeric(df["amount"], errors="coerce")
+        df["amount"] = s.fillna(0.0).astype(float)
+
+        df["category"] = df["category"].astype("string")
+        if "description" in df.columns:
+            df["description"] = df["description"].astype("string").fillna("")
+
+        return df.sort_values(by="date").reset_index(drop=True)
+    finally:
+        con.close()
+
+
+def totals_by_month(df: pd.DataFrame) -> pd.DataFrame:
+    """Суммы по месяцам (YYYY-MM)."""
+    if df.empty:
+        return pd.DataFrame(columns=["month", "amount"])
+
+    out = (
+        df.assign(month=df["date"].dt.to_period("M").astype(str))
+        .groupby("month", as_index=False)[["amount"]]
+        .sum()
+        .sort_values(by=["month"])
+        .reset_index(drop=True)
+    )
+    return out
+
+
+def totals_by_category(df: pd.DataFrame) -> pd.DataFrame:
+    """Суммы по категориям за выбранный диапазон."""
+    if df.empty:
+        return pd.DataFrame(columns=["category", "amount"])
+
+    out = (
+        df.groupby("category", as_index=False)[["amount"]]
+        .sum()
+        .sort_values(by=["amount"], ascending=False)
+        .reset_index(drop=True)
+    )
+    return out
