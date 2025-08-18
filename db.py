@@ -202,73 +202,41 @@ def save_monthly_limits(
 
 
 def get_expenses_df(
-    db_path: str,
-    start_date: Optional[str] = None,  # 'YYYY-MM-DD'
-    end_date: Optional[str] = None,  # 'YYYY-MM-DD'
-    category: Optional[str] = None,  # одна категория
-    categories: Optional[Sequence[str]] = None,  # несколько категорий
+    db_path: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
 ) -> pd.DataFrame:
-    """
-    Возвращает расходы как pandas.DataFrame c типами:
-      - date: datetime64[ns]
-      - category: str
-      - amount: float
-      - description: str
-    """
-    con = sqlite3.connect(db_path)
-    try:
-        where, params = [], []
+    """Возвращает DataFrame с колонками date/category/amount (+description, если она есть)."""
+    path = db_path or DB_PATH
 
+    with sqlite3.connect(path) as conn:
+        # Узнаём реальные колонки таблицы
+        table_info = pd.read_sql_query("PRAGMA table_info(expenses);", conn)
+        existing_cols = set(table_info["name"].tolist())
+
+        # Минимально нужные; description добавляем только если есть в схеме
+        cols = ["date", "category", "amount"]
+        if "description" in existing_cols:
+            cols.append("description")
+
+        # Собираем запрос с фильтрами
+        q = f"SELECT {', '.join(cols)} FROM expenses WHERE 1=1"
+        params = {}
         if start_date:
-            where.append("date >= ?")
-            params.append(start_date)
+            q += " AND date >= :start"
+            params["start"] = start_date
         if end_date:
-            where.append("date <= ?")
-            params.append(end_date)
+            q += " AND date <= :end"
+            params["end"] = end_date
         if category:
-            where.append("category = ?")
-            params.append(category)
-        elif categories:
-            placeholders = ",".join("?" for _ in categories)
-            where.append(f"category IN ({placeholders})")
-            params.extend(list(categories))
+            q += " AND category = :category"
+            params["category"] = category
+        q += " ORDER BY date ASC"
 
-        where_sql = f"WHERE {' AND '.join(where)}" if where else ""
-        q = f"""
-            SELECT date, category, amount, description
-            FROM expenses
-            {where_sql}
-            ORDER BY date ASC
-        """
+        df = pd.read_sql_query(q, conn, params=params)
 
-        df = pd.read_sql_query(q, con, params=params)
-
-        if df.empty:
-            # пустой DF, но с правильными типами
-            return pd.DataFrame(
-                {
-                    "date": pd.to_datetime(pd.Series([], dtype="datetime64[ns]")),
-                    "category": pd.Series([], dtype="string"),
-                    "amount": pd.Series([], dtype="float"),
-                    "description": pd.Series([], dtype="string"),
-                }
-            )
-
-        # даты
-        df["date"] = pd.to_datetime(df["date"], format="%Y-%m-%d", errors="coerce")
-        df = df.dropna(subset=["date"])
-
-        # amount — в два шага, чтобы не бесил Pylance
-        s = pd.to_numeric(df["amount"], errors="coerce")
-        df["amount"] = s.fillna(0.0).astype(float)
-
-        df["category"] = df["category"].astype("string")
-        if "description" in df.columns:
-            df["description"] = df["description"].astype("string").fillna("")
-
-        return df.sort_values(by="date").reset_index(drop=True)
-    finally:
-        con.close()
+    return df
 
 
 def totals_by_month(df: pd.DataFrame) -> pd.DataFrame:

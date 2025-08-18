@@ -15,6 +15,7 @@ from db import (
     add_expense_to_db,
     get_all_expenses,
 )
+from charts import show_charts
 
 # Старые имена файлов — оставлены только для обратной совместимости/экспорта
 EXPENSES_FILE = "expenses.json"
