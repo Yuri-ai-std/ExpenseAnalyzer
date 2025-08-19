@@ -4,10 +4,13 @@ import os
 import csv
 import sqlite3
 import json
+import pandas as pd
+from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
-from typing import List, Dict, Optional
-from messages import messages as project_messages
+from typing import List, Dict, Optional, Any
+from messages import messages
+from collections import Counter
 from utils import load_monthly_limits, save_monthly_limits
 from db import (
     get_conn,
@@ -21,6 +24,8 @@ from charts import show_charts
 EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
 DATABASE_FILE = "expenses.db"
+LANG = "en"
+# en / fr / es - можешь переключать
 
 
 def calculate_total_expenses(expenses):
@@ -294,102 +299,357 @@ def add_expense(messages, lang, budget_limits, categories):
     print(messages["expense_added"])
 
 
-# --------------------------- main меню ---------------------------
+def _t(key: str, default: str = "") -> str:
+    """i18n: возьми ключ из messages[LANG], иначе из en, иначе default."""
+    return messages.get(LANG, messages.get("en", {})).get(
+        key, messages.get("en", {}).get(key, default)
+    )
+
+
+def _safe_call(fn_name: str, *args, **kwargs):
+    """Вызывает функцию по имени, если она существует; иначе ничего не делает."""
+    fn = globals().get(fn_name)
+    if callable(fn):
+        return fn(*args, **kwargs)
+    return None
+
+
+def _call_any(*fn_names):
+    """Вызывает по очереди функции по именам; возвращает результат первой, что нашлась."""
+    for name in fn_names:
+        res = _safe_call(name)
+        if res is not None:
+            return res
+    return None
+
+
+def _coerce_date_iso(s: Any) -> str:
+    if s is None:
+        return ""
+    txt = str(s).strip()
+    if not txt:
+        return ""
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%d.%m.%Y", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(txt, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+    return txt  # уже похоже на дату — вернём как есть
+
+
+def _coerce_float(x: Any) -> float:
+    if isinstance(x, (int, float)):
+        return float(x)
+    if x is None:
+        return 0.0
+    s = str(x).replace(",", ".").strip()
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
+
+
+def _get_current_expenses():
+    """Вернуть текущие расходы: сначала из БД (если есть), иначе из JSON/функций."""
+    # 1) из БД -> список словарей
+    try:
+        import db
+
+        df = db.get_expenses_df()
+        if df is not None and hasattr(df, "empty") and not df.empty:
+            df = df.copy()
+            # приведение типов
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime(
+                    "%Y-%m-%d"
+                )
+            if "amount" in df.columns:
+                df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0)
+            rows = []
+            for _, r in df.iterrows():
+                row = {
+                    "date": str(r.get("date", "")),
+                    "category": str(r.get("category", "")),
+                    "amount": float(r.get("amount", 0.0)),
+                }
+                if "description" in df.columns and pd.notna(r.get("description")):
+                    row["description"] = str(r.get("description"))
+                rows.append(row)
+            if rows:
+                return rows
+    except Exception:
+        pass
+
+    # 2) из функций/JSON
+    res = _safe_call("get_expenses")
+    if res is None:
+        res = _safe_call("load_expenses")
+    return res if isinstance(res, list) else []
+
+
+def _save_and_exit():
+    """Сохранить данные, используя доступные функции, и красиво выйти."""
+    # 1) Если есть save_data() без аргументов — используем её
+    if _safe_call("save_data") is None:
+        # 2) Иначе пробуем классическую связку: load/get -> save_expenses(expenses)
+        expenses = _get_current_expenses()
+        _safe_call("save_expenses", expenses)
+
+    print(_t("saving_data", "Saving data..."))
+    print(_t("goodbye", "Goodbye!"))
+
+
+def _ask(prompt_key: str, fallback: str) -> str:
+    return input(_t(prompt_key, fallback)).strip()
+
+
+def _generate_charts():
+    import charts
+    from pathlib import Path
+    from datetime import datetime
+
+    start = _ask("filter_start_date", "Enter start date (YYYY-MM-DD): ")
+    end = _ask("filter_end_date", "Enter end date (YYYY-MM-DD): ")
+    category = _ask("enter_category", "Enter category (optional): ")
+
+    start = start or None
+    end = end or None
+    category = category or None
+
+    out_dir = Path("reports/plots") / datetime.now().strftime("%Y-%m-%d")
+    try:
+        saved = charts.show_charts(
+            out_dir=out_dir, start=start, end=end, category=category, lang=LANG
+        )
+    except ValueError as e:
+        print("No data for plots with given filters.", str(e))
+        retry = input("Try without filters? (y/N): ").strip().lower()
+        if retry == "y":
+            saved = charts.show_charts(out_dir=out_dir, lang=LANG)
+        else:
+            return
+
+    print(_t("charts_saved_to", "Saved charts:"))
+    for p in saved:
+        print("  ", p)
+
+
+def _render_menu():
+    print()
+    print(_t("menu_header", "=== Expense Analyzer Menu ==="))
+    print(_t("menu_options", ""))
+
+
+def _set_language():
+    global LANG
+    lang = input("Language (en/fr/es): ").strip().lower()
+    if lang in ("en", "fr", "es"):
+        LANG = lang
+        print(f"Language set to: {LANG}")
+    else:
+        print("Unsupported language. Keeping current.")
+
+
+# --- адаптеры под функции, которым нужны аргументы ---------------------------
+
+
+def _load_json_if_exists(path: str):
+    try:
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
+
+
+def _get_budget_limits():
+    """Вернём словарь лимитов из функции или из budget_limits.json."""
+    # 1) если есть функция загрузки — используем её
+    res = _safe_call("load_monthly_limits")
+    if isinstance(res, dict):
+        return res
+    # 2) иначе пробуем файл
+    data = _load_json_if_exists("budget_limits.json")
+    return data if isinstance(data, dict) else {}
+
+
+def _get_categories():
+    """Список категорий: из функции, из БД, либо из expenses.json."""
+    # 1) явная функция
+    cats = _safe_call("get_categories")
+    if isinstance(cats, (list, tuple)) and cats:
+        return list(cats)
+
+    # 2) попробуем БД, если есть модуль db
+    try:
+        import db  # noqa
+
+        df = db.get_expenses_df()
+        if "category" in df.columns and not df.empty:
+            return sorted(set(map(str, df["category"].dropna().astype(str))))
+    except Exception:
+        pass
+
+    # 3) fallback: по expenses.json
+    data = _load_json_if_exists("expenses.json") or []
+    if isinstance(data, list) and data:
+        cats = {str(x.get("category", "")).strip() for x in data if x.get("category")}
+        if cats:
+            return sorted(cats)
+
+    return []  # пусть функция add_expense сама спросит категорию вручную
+
+
+def _msgs_lang():
+    """Сообщения текущего языка (плоский словарь)."""
+    return messages.get(LANG, messages.get("en", {}))
+
+
+def _add_expense_adapter():
+    """Вызов add_expense с нужными параметрами (локализованные messages)."""
+    return _safe_call(
+        "add_expense",
+        messages=_msgs_lang(),  # ⬅️ передаём плоский словарь, а не весь messages
+        lang=LANG,  # если функция использует lang — он есть
+        budget_limits=_get_budget_limits(),
+        categories=_get_categories(),
+    )
+
+
+def _call_fn_variants(fn, expenses, msgs, lang):
+    """Пробуем популярные сигнатуры, возвращаем результат первой удачной."""
+    # (ex, msgs, lang)
+    try:
+        return fn(expenses, msgs, lang)
+    except TypeError:
+        pass
+    # (ex=..., messages=..., lang=...)
+    try:
+        return fn(expenses=expenses, messages=msgs, lang=lang)
+    except TypeError:
+        pass
+    # (ex, msgs)
+    try:
+        return fn(expenses, msgs)
+    except TypeError:
+        pass
+    # (ex=..., messages=...)
+    try:
+        return fn(expenses=expenses, messages=msgs)
+    except TypeError:
+        pass
+    # () — как крайний случай
+    try:
+        return fn()
+    except TypeError:
+        return None
+
+
+def _summarize_adapter():
+    """Опция 2: агрегированный итог по категориям (через вашу функцию или fallback)."""
+    expenses = _get_current_expenses()
+    msgs = _msgs_lang()
+
+    for name in ("summarize_expenses", "show_summary"):
+        fn = globals().get(name)
+        if callable(fn):
+            res = _call_fn_variants(fn, expenses, msgs, LANG)
+            if res is not None:
+                return res
+
+    # Fallback (если проектных функций нет) — печать простого summary:
+    totals = {}
+    for e in expenses:
+        cat = str(e.get("category", "") or "uncategorized")
+        amt = float(e.get("amount", 0) or 0)
+        totals[cat] = totals.get(cat, 0.0) + amt
+
+    print(_t("summary_header", "=== Expense Summary ==="))
+    if not totals:
+        print(_t("no_expenses", "No expenses recorded."))
+        return
+
+    grand = 0.0
+    for cat in sorted(totals):
+        val = totals[cat]
+        print(
+            _t("summary_line", "Category: {category}, Total: {total}").format(
+                category=cat, total=f"{val:.2f}"
+            )
+        )
+        grand += val
+
+    print(_t("total_expenses", "Total expenses: {total}").format(total=f"{grand:.2f}"))
+
+
+def _view_all_adapter():
+    """Опция 6: показать все операции (через проектные функции или fallback)."""
+    ex = _get_current_expenses()
+    msgs = _msgs_lang()
+
+    # Попробовать проектные функции
+    for name in ("show_expenses", "view_all_expenses"):
+        fn = globals().get(name)
+        if callable(fn):
+            res = _call_fn_variants(fn, ex, msgs, LANG)
+            if res is not None:
+                return
+
+    # --- Fallback: печать всех операций (компактно, схлопывая дубли) ---
+    print(_t("all_expenses_header", "=== All Expenses ==="))
+    if not ex:
+        print(_t("no_expenses", "No expenses recorded."))
+        return
+
+    from collections import Counter
+
+    def _key(e):
+        return (
+            str(e.get("date", "")),
+            str(e.get("category", "")),
+            float(e.get("amount", 0) or 0),
+            str(e.get("description") or e.get("note") or ""),
+        )
+
+    grouped = Counter(_key(e) for e in ex)
+
+    # печатаем в хронологическом порядке
+    for (date, cat, amt, desc), n in sorted(grouped.items(), key=lambda t: t[0]):
+        line = f"{date.ljust(10)}  {cat.ljust(14)}  {amt:10.2f}"
+        if desc:
+            line += f" — {desc}"
+        if n > 1:
+            line += f"  ×{n}"
+        print(line)
 
 
 def main():
-    # миграция старого expenses.json → expenses.db (безопасна при повторном вызове)
-    migrate_json_to_sqlite(EXPENSES_FILE, DATABASE_FILE)
-
-    lang = input(
-        "Choose your language / Choisissez votre langue / Elige tu idioma (en/fr/es): "
-    ).lower()
-    if lang not in project_messages:
-        print("Language not supported. Defaulting to English.")
-        lang = "en"
-    messages = project_messages[lang]
-
-    # лимиты остаются в JSON (совместимость с тестами и простота редактирования)
-    budget_limits = load_monthly_limits(BUDGET_LIMITS_FILE)
-
-    categories = [
-        "food",
-        "transport",
-        "entertainment",
-        "utilities",
-        "rent",
-        "groceries",
-        "other",
-    ]
-
     while True:
-        print("\n" + messages["menu"])
-        print("(6) Export to CSV")  # временно жёстко в меню
-        choice = input(messages["select_option"])
+        _render_menu()
+        choice = input(_t("enter_option", "Enter option: ")).strip()
 
         if choice == "1":
-            add_expense(messages, lang, budget_limits, categories)
-
+            _add_expense_adapter()
         elif choice == "2":
-            filter_choice = input(messages["filter_prompt"]).lower()
-            if filter_choice in ("yes", "oui", "sí", "si"):
-                start_date = get_valid_date(messages["start_date"], messages)
-                end_date = get_valid_date(messages["end_date"], messages)
-                filtered = filter_expenses_by_date_db(start_date, end_date, messages)
-                summarize_expenses(filtered, messages, lang, by_date=True)
-                with get_conn(DATABASE_FILE) as conn:
-                    check_budget_limits(
-                        conn, budget_limits, messages, start_date, end_date
-                    )
-            else:
-                expenses = get_all_expenses()
-                show_monthly_summary(expenses, messages)
-                with get_conn(DATABASE_FILE) as conn:
-                    check_budget_limits(conn, budget_limits, messages)
-
+            _summarize_adapter()
         elif choice == "3":
-            print(messages["tips_header"])
-            for k in ("tip_1", "tip_2", "tip_3"):
-                if k in messages:
-                    print("- " + messages[k])
-
+            _safe_call("filter_expenses_by_date")
         elif choice == "4":
-            print(messages["goodbye"])
-            save_monthly_limits(budget_limits, BUDGET_LIMITS_FILE)
-            break
-
+            _safe_call("check_budget_limits")
         elif choice == "5":
-            # обновление лимитов (осталось JSON-ориентированным)
-            month = input(messages["enter_month"])
-            budget_limits.setdefault(month, {})
-            print(messages["current_limits"].format(month=month))
-            for cat in categories:
-                cur = budget_limits[month].get(cat, "not set")
-                print(f"  {cat}: {cur}")
-            for cat in categories:
-                s = input(
-                    messages["prompt_budget_limit_for_category"].format(cat)
-                    + " (Press Enter to skip): "
-                ).strip()
-                if not s:
-                    continue
-                try:
-                    budget_limits[month][cat] = float(s)
-                except ValueError:
-                    print(messages["invalid_amount"])
-            print(messages["budget_limit_updated"])
-            save_monthly_limits(budget_limits, BUDGET_LIMITS_FILE)
-
+            _safe_call("update_budget_limits")
         elif choice == "6":
-            # простой экспорт в CSV
-            out_path = input("CSV path (e.g. export.csv): ").strip() or "export.csv"
-            sd = input("Start date YYYY-MM-DD (optional): ").strip() or None
-            ed = input("End date YYYY-MM-DD (optional): ").strip() or None
-            cat = input("Category (optional): ").strip() or None
-            export_to_csv(DATABASE_FILE, out_path, sd, ed, cat)
-
+            _view_all_adapter()
+        elif choice == "7":  # Save & Exit
+            _save_and_exit()
+            break
+        elif choice == "8":  # Generate charts
+            _generate_charts()
+        elif choice.lower() == "l":
+            _set_language()
         else:
-            print(messages["invalid_option"])
+            print(_t("invalid_option", "Invalid option. Please enter a valid number."))
 
 
 if __name__ == "__main__":
