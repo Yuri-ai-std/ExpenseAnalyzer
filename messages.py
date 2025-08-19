@@ -2,151 +2,171 @@
 
 messages = {
     "en": {
-        "select_option": "Choose an option (1–5): ",
-        "option_1": "Analyze expenses",
-        "option_2": "Show summary",
-        "option_3": "Get tips",
-        "option_4": "Exit",
-        "option_5": "Update budget limits",
-        "invalid_option": "Invalid option. Please choose again.",
-        "menu": "Options:\n1. Add expense\n2. View summary\n3. Budget tips\n4. Exit\n5. Update budget limits",
-        "enter_category": "Enter expense category: ",
-        "valid_categories": "Valid categories are",
-        "try_again_or_other": "Please try again or type 'other':",
-        "auto_assign_other": "⚠️ Unknown category. Assigned to 'other' automatically.",
-        "invalid_category": "Invalid category.",
+        # --- Menu ---
+        "menu_header": "=== Expense Analyzer Menu ===",
+        "menu_options": (
+            "1: Add expense\n"
+            "2: Show summary\n"
+            "3: Filter expenses by date\n"
+            "4: Check budget limits\n"
+            "5: Set or update budget limits\n"
+            "6: View all expenses\n"
+            "7: Save & Exit\n"
+            "8: Generate charts\n"
+            "L: Change language\n"
+        ),
+        "enter_option": "Enter option: ",
+        "invalid_option": "Invalid option! Please enter a number from 1 to 8.",
+        # --- Input Prompts ---
+        "enter_date": "Enter date (YYYY-MM-DD): ",
+        "invalid_date": "Invalid date! Use YYYY-MM-DD.",
+        "enter_category": "Enter category: ",
+        "invalid_category": "Invalid category! Please try again.",
         "enter_amount": "Enter amount: ",
-        "enter_description": "Enter description: ",
-        "expense_added": "Expense added successfully.",
-        "press_enter_to_continue": "Press Enter to continue...",
-        "add_expense_header": "\n--- Add Expense ---",
-        "summary_header": "\n--- Expense Summary ---",
+        "invalid_amount": "Invalid amount! Please enter a number.",
+        "enter_description": "Enter description (optional): ",
+        # --- Expense Actions ---
+        "expense_summary": "Expense summary:",
+        "expense_added": "Expense added successfully!",
+        "no_expenses": "No expenses recorded.",
+        # --- Summary & Reports ---
+        "summary_header": "=== Expense Summary ===",
+        "summary_line": "Category: {category}, Total: {total}",
         "total_expenses": "Total expenses: {total}",
-        "budget_check_header": "\n--- Budget Check ---",
-        "category_over_limit": "🔴 {category} is over the limit! Total: ${total:.2f}, Limit: ${limit:.2f}",
-        "category_near_limit": "🟡 {category} is nearing the limit. Total: ${total:.2f}, Limit: ${limit:.2f}",
-        "category_within_limit": "🟢 {category} is within budget. Total: ${total:.2f}, Limit: ${limit:.2f}",
-        "filter_prompt": "Would you like to filter expenses by date range? (yes/no): ",
-        "expense_summary": "--- Expense Summary ---",
-        "start_date": "Enter start date (YYYY-MM-DD): ",
-        "end_date": "Enter end date (YYYY-MM-DD): ",
-        "invalid_date_format": "❗ Invalid date format. Please use YYYY-MM-DD.",
-        "update_limits": "5. Update budget limits",
-        "enter_month": "Enter the month (YYYY-MM): ",
-        "current_limits": "Current limits for {month}:",
-        "prompt_budget_limit_for_category": "Enter new limit for category '{}':",
-        "invalid_amount": "Invalid amount. Please enter a number.",
-        "enter_category": "Enter the category to update: ",
-        "enter_new_limit": "Enter new limit for {category} in {month}: ",
-        "budget_limit_updated": "Budget limits updated successfully.",
-        "limit_updated": "Limit updated successfully.",
-        "category_not_found": "❗ Category '{category}' not found for month {month}. Please try again.",
-        "filter_yes_no": "yes",
-        "tips_header": "\n--- Expense Management Tips ---",
-        "tip_1": "Track all expenses daily.",
-        "tip_2": "Set realistic monthly budgets.",
-        "tip_3": "Review your spending weekly.",
-        "goodbye": "Goodbye!"
+        "note": "Note: {note}",
+        # --- Budget ---
+        "budget_header": "=== Budget Check ===",
+        "budget_limit_updated": "Budget limit updated successfully!",
+        "prompt_budget_limit_for_category": "Enter budget limit for category:",
+        "enter_month": "Enter month (YYYY-MM): ",
+        "budget_ok": "Within budget for {category}.",
+        "budget_exceeded": "⚠️ Over budget for {category}!",
+        "set_limit_category": "Enter category to set/update limit: ",
+        "set_limit_amount": "Enter monthly limit for this category: ",
+        "limit_updated": "Budget limit updated successfully!",
+        "no_limits_set": "No budget limits have been set.",
+        "limits_header": "=== Budget Limits ===",
+        "limit_line": "Category: {category}, Limit: {limit}",
+        # --- Filter ---
+        "filter_start_date": "Enter start date (YYYY-MM-DD): ",
+        "filter_end_date": "Enter end date (YYYY-MM-DD): ",
+        "filter_prompt": "Enter start and end date (YYYY-MM-DD to YYYY-MM-DD): ",
+        "filter_results_header": "=== Filtered Expenses ===",
+        "no_results": "No expenses found for this period.",
+        # --- Exit ---
+        "saving_data": "Saving data...",
+        "goodbye": "Goodbye!",
     },
     "fr": {
-        "select_option": "Choisissez une option (1–5): ",
-        "option_1": "Analyser les dépenses",
-        "option_2": "Afficher le résumé",
-        "option_3": "Obtenir des conseils",
-        "option_4": "Quitter",
-        "option_5": "Modifier les limites budgétaires",
-        "invalid_option": "Option invalide. Veuillez réessayer.",
-        "menu": "Options :\n1. Ajouter une dépense\n2. Voir le résumé\n3. Conseils budgétaires\n4. Quitter\n5. Mettre à jour les limites de budget",
-        "enter_category": "Entrez la catégorie de dépense : ",
-        "valid_categories": "Les catégories valides sont",
-        "try_again_or_other": "Veuillez réessayer ou tapez 'autre' : ",
-        "auto_assign_other": "⚠️ Catégorie inconnue. Attribuée automatiquement à 'autre'.",
-        "invalid_category": "Catégorie invalide.",
+        # --- Menu ---
+        "menu_header": "=== Menu de l'Analyseur de Dépenses ===",
+        "menu_options": (
+            "1: Ajouter une dépense\n"
+            "2: Voir le résumé\n"
+            "3: Filtrer les dépenses par date\n"
+            "4: Vérifier les limites budgétaires\n"
+            "5: Définir ou mettre à jour les limites budgétaires\n"
+            "6: Voir toutes les dépenses\n"
+            "7: Sauvegarder et Quitter\n"
+            "8: Générer des graphiques\n"
+            "L: Changer de langue\n"
+        ),
+        "enter_option": "Choisissez une option : ",
+        "invalid_option": "Option invalide ! Veuillez entrer un nombre de 1 à 8.",
+        # --- Input Prompts ---
+        "enter_date": "Entrez la date (AAAA-MM-JJ) : ",
+        "invalid_date": "Date invalide ! Utilisez AAAA-MM-JJ.",
+        "enter_category": "Entrez la catégorie : ",
+        "invalid_category": "Catégorie invalide ! Veuillez réessayer.",
         "enter_amount": "Entrez le montant : ",
-        "enter_description": "Entrez la description : ",
-        "expense_added": "Dépense ajoutée avec succès.",
-        "press_enter_to_continue": "Appuyez sur Entrée pour continuer...",
-        "add_expense_header": "\n--- Ajouter une dépense ---",
-        "summary_header": "\n--- Résumé des dépenses ---",
-        "total_expenses": "Total des dépenses : {total}",
-        "budget_check_header": "\n--- Vérification du budget ---",
-        "category_over_limit": "🔴 {category} dépasse la limite ! Total : {total:.2f} $, Limite : {limit:.2f} $",
-        "category_near_limit": "🟡 {category} approche de la limite. Total : {total:.2f} $, Limite : {limit:.2f} $",
-        "category_within_limit": "🟢 {category} est dans le budget. Total : {total:.2f} $, Limite : {limit:.2f} $",
-        "filter_prompt": "Souhaitez-vous filtrer les dépenses par période ? (oui/non) : ",
-        "expense_summary": "--- Résumé des dépenses ---",
-        "start_date": "Entrez la date de début (AAAA-MM-JJ) : ",
-        "end_date": "Entrez la date de fin (AAAA-MM-JJ) : ",
-        "invalid_date_format": "❗ Format de date invalide. Veuillez utiliser AAAA-MM-JJ.",
-        "update_limits": "5. Modifier les limites budgétaires",
+        "invalid_amount": "Montant invalide ! Veuillez entrer un nombre.",
+        "enter_description": "Entrez une description (optionnel) : ",
+        # --- Expense Actions ---
+        "expense_summary": "Résumé des dépenses :",
+        "expense_added": "Dépense ajoutée avec succès !",
+        "no_expenses": "Aucune dépense enregistrée.",
+        # --- Summary & Reports ---
+        "summary_header": "=== Résumé des Dépenses ===",
+        "summary_line": "Catégorie : {category}, Total : {total}",
+        "total_expenses": "Dépenses totales : {total}",
+        "note": "Note : {note}",
+        # --- Budget ---
+        "budget_header": "=== Vérification du Budget ===",
+        "budget_limit_updated": "Limite budgétaire mise à jour avec succès !",
+        "prompt_budget_limit_for_category": "Entrez la limite budgétaire pour la catégorie :",
         "enter_month": "Entrez le mois (AAAA-MM) : ",
-        "current_limits": "Plafonds actuels pour {month} :",
-        "prompt_budget_limit_for_category": "Entrez la nouvelle limite pour la catégorie '{}':",
-        "invalid_amount": "Montant invalide. Veuillez entrer un nombre.",
-        "enter_category": "Entrez la catégorie à modifier : ",
-        "enter_new_limit": "Entrez la nouvelle limite pour {category} en {month} : ",
-        "budget_limit_updated": "Les limites budgétaires ont été mises à jour avec succès.",
-        "limit_updated": "Limite mise à jour avec succès.",
-        "category_not_found": "❗ Catégorie '{category}' introuvable pour le mois de {month}. Veuillez réessayer.",
-        "filter_yes_no": "oui",
-        "tips_header": "\n--- Conseils de gestion des dépenses ---",
-        "tip_1": "Suivez toutes vos dépenses quotidiennement.",
-        "tip_2": "Établissez des budgets mensuels réalistes.",
-        "tip_3": "Examinez vos dépenses chaque semaine.",
-        "goodbye": "Au revoir !"
+        "budget_ok": "Dans le budget pour {category}.",
+        "budget_exceeded": "⚠️ Dépassement du budget pour {category} !",
+        "set_limit_category": "Entrez la catégorie pour définir/mettre à jour la limite : ",
+        "set_limit_amount": "Entrez la limite mensuelle pour cette catégorie : ",
+        "limit_updated": "Limite budgétaire mise à jour avec succès !",
+        "no_limits_set": "Aucune limite budgétaire n’a été définie.",
+        "limits_header": "=== Limites Budgétaires ===",
+        "limit_line": "Catégorie : {category}, Limite : {limit}",
+        # --- Filter ---
+        "filter_start_date": "Entrez la date de début (AAAA-MM-JJ) : ",
+        "filter_end_date": "Entrez la date de fin (AAAA-MM-JJ) : ",
+        "filter_prompt": "Entrez la date de début et de fin (AAAA-MM-JJ à AAAA-MM-JJ) : ",
+        "filter_results_header": "=== Dépenses Filtrées ===",
+        "no_results": "Aucune dépense trouvée pour cette période.",
+        # --- Exit ---
+        "saving_data": "Sauvegarde des données...",
+        "goodbye": "Au revoir !",
     },
     "es": {
-        "select_option": "Elige una opción (1–5): ",
-        "option_1": "Analizar gastos",
-        "option_2": "Mostrar resumen",
-        "option_3": "Obtener consejos",
-        "option_4": "Salir",
-        "option_5": "Actualizar los límites del presupuesto",
-        "invalid_option": "Opción inválida. Por favor, inténtalo de nuevo.",
-        "menu": "Opciones:\n1. Agregar gasto\n2. Ver resumen\n3. Consejos de presupuesto\n4. Salir\n5. Actualizar límites de presupuesto",
-        "enter_category": "Introduce la categoría del gasto: ",
-        "valid_categories": "Las categorías válidas son",
-        "try_again_or_other": "Por favor, inténtalo de nuevo o escribe 'otro': ",
-        "auto_assign_other": "⚠️ Categoría desconocida. Asignada automáticamente a 'otro'.",
-        "invalid_category": "Categoría inválida.",
-        "enter_amount": "Introduce el monto: ",
-        "enter_description": "Introduce la descripción: ",
-        "expense_added": "Gasto añadido con éxito.",
-        "press_enter_to_continue": "Presiona Enter para continuar...",
-        "add_expense_header": "\n--- Añadir gasto ---",
-        "summary_header": "\n--- Resumen de gastos ---",
+        # --- Menu ---
+        "menu_header": "=== Menú del Analizador de Gastos ===",
+        "menu_options": (
+            "1: Añadir gasto\n"
+            "2: Ver resumen\n"
+            "3: Filtrar gastos por fecha\n"
+            "4: Revisar límites de presupuesto\n"
+            "5: Establecer o actualizar límites de presupuesto\n"
+            "6: Ver todos los gastos\n"
+            "7: Guardar y Salir\n"
+            "8: Generar gráficos\n"
+            "L: Cambiar idioma\n"
+        ),
+        "enter_option": "Elija una opción: ",
+        "invalid_option": "¡Opción inválida! Por favor, ingrese un número del 1 al 8.",
+        # --- Input Prompts ---
+        "enter_date": "Ingrese la fecha (AAAA-MM-DD): ",
+        "invalid_date": "¡Fecha inválida! Use AAAA-MM-DD.",
+        "enter_category": "Ingrese la categoría: ",
+        "invalid_category": "¡Categoría inválida! Intente de nuevo.",
+        "enter_amount": "Ingrese el monto: ",
+        "invalid_amount": "¡Monto inválido! Por favor, ingrese un número.",
+        "enter_description": "Ingrese una descripción (opcional): ",
+        # --- Expense Actions ---
+        "expense_summary": "Resumen de gastos:",
+        "expense_added": "¡Gasto agregado con éxito!",
+        "no_expenses": "No se registraron gastos.",
+        # --- Summary & Reports ---
+        "summary_header": "=== Resumen de Gastos ===",
+        "summary_line": "Categoría: {category}, Total: {total}",
         "total_expenses": "Gastos totales: {total}",
-        "budget_check_header": "\n--- Revisión del presupuesto ---",
-        "category_over_limit": "🔴 {category} supera el límite! Total: ${total:.2f}, Límite: ${limit:.2f}",
-        "category_near_limit": "🟡 {category} está cerca del límite. Total: ${total:.2f}, Límite: ${limit:.2f}",
-        "category_within_limit": "🟢 {category} está dentro del presupuesto. Total: ${total:.2f}, Límite: ${limit:.2f}",
-        "filter_prompt": "¿Desea filtrar los gastos por rango de fechas? (sí/no): ",
-        "expense_summary": "--- Resumen de gastos ---",
-        "start_date": "Introduce la fecha de inicio (AAAA-MM-DD): ",
-        "end_date": "Introduce la fecha de fin (AAAA-MM-DD): ",
-        "invalid_date_format": "❗ Formato de fecha inválido. Utiliza AAAA-MM-DD.",
-        "update_limits": "5. Modificar los límites de presupuesto",
+        "note": "Nota: {note}",
+        # --- Budget ---
+        "budget_header": "=== Revisión del Presupuesto ===",
+        "budget_limit_updated": "¡Límite de presupuesto actualizado con éxito!",
+        "prompt_budget_limit_for_category": "Ingrese el límite de presupuesto para la categoría:",
         "enter_month": "Ingrese el mes (AAAA-MM): ",
-        "current_limits": "Límites actuales para {month}:",
-        "prompt_budget_limit_for_category": "Ingrese el nuevo límite para la categoría '{}':",
-        "invalid_amount": "Cantidad inválida. Por favor, introduzca un número.",
-        "enter_category": "Ingrese la categoría a modificar: ",
-        "enter_new_limit": "Ingrese el nuevo límite para {category} en {month}: ",
-        "budget_limit_updated": "Los límites de presupuesto se han actualizado correctamente.",
-        "limit_updated": "Límite actualizado con éxito.",
-        "category_not_found": "❗ Categoría '{category}' no encontrada para el mes {month}. Por favor, inténtalo de nuevo.",
-        "filter_yes_no": "sí",
-        "tips_header": "\n--- Consejos para administrar tus gastos ---",
-        "tip_1": "Registra todos los gastos diariamente.",
-        "tip_2": "Establece presupuestos mensuales realistas.",
-        "tip_3": "Revisa tus gastos semanalmente.",
-        "goodbye": "¡Adiós!"
-    }
+        "budget_ok": "Dentro del presupuesto para {category}.",
+        "budget_exceeded": "⚠️ ¡Presupuesto excedido para {category}!",
+        "set_limit_category": "Ingrese la categoría para establecer/actualizar el límite: ",
+        "set_limit_amount": "Ingrese el límite mensual para esta categoría: ",
+        "limit_updated": "¡Límite de presupuesto actualizado con éxito!",
+        "no_limits_set": "No se han establecido límites de presupuesto.",
+        "limits_header": "=== Límites de Presupuesto ===",
+        "limit_line": "Categoría: {category}, Límite: {limit}",
+        # --- Filter ---
+        "filter_start_date": "Ingrese la fecha de inicio (AAAA-MM-DD): ",
+        "filter_end_date": "Ingrese la fecha de fin (AAAA-MM-DD): ",
+        "filter_prompt": "Ingrese la fecha de inicio y de fin (AAAA-MM-DD a AAAA-MM-DD): ",
+        "filter_results_header": "=== Gastos Filtrados ===",
+        "no_results": "No se encontraron gastos para este período.",
+        # --- Exit ---
+        "saving_data": "Guardando datos...",
+        "goodbye": "¡Adiós!",
+    },
 }
-
-
-
-
-
-
-

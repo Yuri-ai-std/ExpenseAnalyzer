@@ -4,6 +4,7 @@
 
 # Ignore virtual environments
 venv/
+.venv/
 .env/
 
 # Ignore Python bytecode
@@ -15,3 +16,15 @@ __pycache__/
 *.tmp
 *.swp
 .DS_Store
+
+.vscode/*
+.venv_old/
+# exports
+*.csv
+*.xlsx
+
+# backups
+*.bak
+
+# reports
+reports/plots/

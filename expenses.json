@@ -1,170 +1,5392 @@
 [
   {
+    "date": "2024-01-02",
     "category": "food",
-    "amount": 12.5,
-    "description": "Lunch at café",
-    "date": "2024-07-23"
+    "amount": 12.34
   },
   {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-02",
+    "category": "food",
+    "amount": 12.34
+  },
+  {
+    "date": "2024-01-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-07-23",
+    "category": "food",
+    "amount": 12.5
+  },
+  {
+    "date": "2024-08-10",
     "category": "transport",
-    "amount": 20.0,
-    "description": "Metro card",
-    "date": "2024-08-10"
+    "amount": 20.0
   },
   {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-08-10",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2024-09-01",
     "category": "utilities",
-    "amount": 55.25,
-    "description": "Electric bill",
-    "date": "2024-09-01"
+    "amount": 55.25
   },
   {
-    "category": "entertainment",
-    "amount": 30.0,
-    "description": "Movie tickets",
-    "date": "2024-10-15"
-  },
-  {
-    "category": "groceries",
-    "amount": 100.0,
-    "description": "Weekly shopping",
-    "date": "2024-11-25"
-  },
-  {
-    "category": "other",
-    "amount": 75.0,
-    "description": "Pharmacy",
-    "date": "2025-03-20"
-  },
-  {
-    "category": "other",
-    "amount": 40.0,
-    "description": "Valentine's gift",
-    "date": "2025-03-20"
-  },
-  {
-    "category": "other",
-    "amount": 200.0,
-    "description": "Online course",
-    "date": "2025-03-20"
-  },
-  {
-    "category": "other",
-    "amount": 60.0,
-    "description": "Dinner with friends",
-    "date": "2025-04-22"
-  },
-  {
-    "category": "transport",
-    "amount": 18.0,
-    "description": "Bus pass",
-    "date": "2025-06-15"
-  },
-  {
-    "category": "other",
-    "amount": 9.99,
-    "description": "Streaming service",
-    "date": "2025-06-15"
-  },
-  {
-    "category": "transport",
-    "amount": 15.0,
-    "description": "Taxi to airport",
-    "date": "2025-07-19"
-  },
-  {
-    "category": "food",
-    "amount": 25.5,
-    "description": "Lunch with friends",
-    "date": "2025-07-15"
-  },
-  {
-    "category": "transport",
-    "amount": 65.0,
-    "description": "Bus Ticket",
-    "date": "2025-07-19"
-  },
-  {
-    "category": "transport",
-    "amount": 200.0,
-    "description": "Gas",
-    "date": "2025-07-19"
-  },
-  {
-    "category": "entertainment",
-    "amount": 595.79,
-    "description": "hotel",
-    "date": "2025-07-20"
-  },
-  {
+    "date": "2024-09-01",
     "category": "utilities",
-    "amount": 70.21,
-    "description": "Hydro Quebec",
-    "date": "2025-07-20"
+    "amount": 55.25
   },
   {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-09-01",
+    "category": "utilities",
+    "amount": 55.25
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-10-15",
+    "category": "entertainment",
+    "amount": 30.0
+  },
+  {
+    "date": "2024-11-25",
     "category": "groceries",
-    "amount": 78.49,
-    "description": "parfume",
-    "date": "2025-07-20"
+    "amount": 100.0
   },
   {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2024-11-25",
+    "category": "groceries",
+    "amount": 100.0
+  },
+  {
+    "date": "2025-03-20",
     "category": "other",
-    "amount": 149.99,
-    "description": "tools",
-    "date": "2025-07-20"
+    "amount": 75.0
   },
   {
+    "date": "2025-03-20",
     "category": "other",
-    "amount": 36.54,
-    "description": "stationery",
-    "date": "2025-07-20"
+    "amount": 40.0
   },
   {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 75.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 40.0
+  },
+  {
+    "date": "2025-03-20",
+    "category": "other",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-04-22",
+    "category": "other",
+    "amount": 60.0
+  },
+  {
+    "date": "2025-06-15",
     "category": "transport",
-    "amount": 12.0,
-    "description": "metro tickets",
-    "date": "2025-07-20"
+    "amount": 18.0
   },
   {
-    "category": "groceries",
-    "amount": 7.99,
-    "description": "mineral water",
-    "date": "2025-07-22"
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
   },
   {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-06-15",
+    "category": "transport",
+    "amount": 18.0
+  },
+  {
+    "date": "2025-06-15",
+    "category": "other",
+    "amount": 9.99
+  },
+  {
+    "date": "2025-07-15",
     "category": "food",
-    "amount": 4.5,
-    "description": "bread",
-    "date": "2025-07-22"
+    "amount": 25.5
   },
   {
+    "date": "2025-07-15",
     "category": "food",
-    "amount": 9.98,
-    "description": "eggs",
-    "date": "2025-07-23"
+    "amount": 25.5
   },
   {
-    "category": "groceries",
-    "amount": 58.64,
-    "description": "supermarket",
-    "date": "2025-07-23"
-  },
-  {
+    "date": "2025-07-15",
     "category": "food",
-    "amount": 45.0,
-    "description": "petit-dejeuner avec ma femme au cafe",
-    "date": "2025-07-23"
+    "amount": 25.5
   },
   {
-    "category": "groceries",
-    "amount": 76.65,
-    "description": "pharmacy",
-    "date": "2025-07-24"
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
   },
   {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-15",
+    "category": "food",
+    "amount": 25.5
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 15.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 65.0
+  },
+  {
+    "date": "2025-07-19",
+    "category": "transport",
+    "amount": 200.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "food",
+    "amount": 10.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
     "category": "groceries",
-    "amount": 156.96,
-    "description": "supermarche IGA",
-    "date": "2025-07-25"
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-20",
+    "category": "entertainment",
+    "amount": 595.79
+  },
+  {
+    "date": "2025-07-20",
+    "category": "utilities",
+    "amount": 70.21
+  },
+  {
+    "date": "2025-07-20",
+    "category": "groceries",
+    "amount": 78.49
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 149.99
+  },
+  {
+    "date": "2025-07-20",
+    "category": "other",
+    "amount": 36.54
+  },
+  {
+    "date": "2025-07-20",
+    "category": "transport",
+    "amount": 12.0
+  },
+  {
+    "date": "2025-07-21",
+    "category": "transport",
+    "amount": 5.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-22",
+    "category": "groceries",
+    "amount": 7.99
+  },
+  {
+    "date": "2025-07-22",
+    "category": "food",
+    "amount": 4.5
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 9.98
+  },
+  {
+    "date": "2025-07-23",
+    "category": "groceries",
+    "amount": 58.64
+  },
+  {
+    "date": "2025-07-23",
+    "category": "food",
+    "amount": 45.0
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-24",
+    "category": "groceries",
+    "amount": 76.65
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-07-25",
+    "category": "groceries",
+    "amount": 156.96
+  },
+  {
+    "date": "2025-08-10",
+    "category": "food",
+    "amount": 50.0
+  },
+  {
+    "date": "2025-08-12",
+    "category": "transport",
+    "amount": 20.0
+  },
+  {
+    "date": "2025-08-15",
+    "category": "food",
+    "amount": 30.0
   }
 ]
