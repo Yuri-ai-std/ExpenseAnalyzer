@@ -1,204 +1,32 @@
-# db.py — SQLite backend for ExpenseAnalyzer
-
 from __future__ import annotations
-import json
-import os
+
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 import sqlite3
 import pandas as pd
-from typing import Dict, List, Tuple
-from typing import Optional, Sequence
 
+# Путь к БД по умолчанию
 DB_PATH = "expenses.db"
-EXPENSES_JSON = "expenses.json"
-BUDGET_LIMITS_JSON = "budget_limits.json"
 
 
-# ——— Low-level helpers ———
-def get_conn(db_path: str = DB_PATH) -> sqlite3.Connection:
-    """Return a SQLite connection with sensible defaults."""
-    conn = sqlite3.connect(db_path)
-    # Make returned rows behave like tuples (simple & fast)
-    return conn
+def ensure_schema(db_path: str = DB_PATH) -> None:
+    import sqlite3
 
-
-def initialize_db(db_path: str = DB_PATH) -> None:
-    """Create required tables if they don't exist."""
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS expenses (
-            id       INTEGER PRIMARY KEY AUTOINCREMENT,
-            date     TEXT    NOT NULL,     -- YYYY-MM-DD
-            category TEXT    NOT NULL,
-            amount   REAL    NOT NULL,
-            note     TEXT
-        )
-        """
-    )
-
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS budget_limits (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            month        TEXT    NOT NULL,    -- YYYY-MM
-            category     TEXT    NOT NULL,
-            limit_amount REAL    NOT NULL,
-            UNIQUE(month, category)
-        )
-        """
-    )
-
-    conn.commit()
-    conn.close()
-
-
-# ——— Import/migration from legacy JSON files ———
-def migrate_json_to_sqlite(
-    expenses_json: str = EXPENSES_JSON,
-    limits_json: str = BUDGET_LIMITS_JSON,
-    db_path: str = DB_PATH,
-) -> None:
-    """
-    One-time import from JSON files into SQLite (idempotent):
-    - Appends expenses that are not already present by (date, category, amount, note)
-    - Upserts monthly limits
-    """
-    initialize_db(db_path)
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-
-    # Expenses
-    if os.path.exists(expenses_json):
-        try:
-            with open(expenses_json, "r", encoding="utf-8") as f:
-                items = json.load(f)
-        except Exception:
-            items = []
-
-        for e in items or []:
-            cur.execute(
-                """
-                INSERT INTO expenses (date, category, amount, note)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    e.get("date"),
-                    e.get("category"),
-                    float(e.get("amount", 0.0)),
-                    e.get("note") or e.get("description") or "",
-                ),
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS expenses(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                category TEXT NOT NULL,
+                amount REAL NOT NULL,
+                description TEXT
             )
-
-    # Limits: JSON shape expected { "YYYY-MM": { "food": 100.0, ... }, ... }
-    if os.path.exists(limits_json):
-        try:
-            with open(limits_json, "r", encoding="utf-8") as f:
-                limits = json.load(f) or {}
-        except Exception:
-            limits = {}
-
-        for month, cats in limits.items():
-            for category, limit_amount in (cats or {}).items():
-                # Use UPSERT (SQLite 3.24+). If unavailable, REPLACE INTO also works.
-                cur.execute(
-                    """
-                    INSERT INTO budget_limits (month, category, limit_amount)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(month, category)
-                    DO UPDATE SET limit_amount=excluded.limit_amount
-                    """,
-                    (month, category, float(limit_amount)),
-                )
-
-    conn.commit()
-    conn.close()
-
-
-# ——— Public API used by project.py ———
-def add_expense_to_db(
-    date: str, category: str, amount: float, note: str = "", db_path: str = DB_PATH
-) -> None:
-    """Insert a single expense row."""
-    initialize_db(db_path)
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO expenses (date, category, amount, note) VALUES (?, ?, ?, ?)",
-        (date, category, float(amount), note or ""),
-    )
-    conn.commit()
-    conn.close()
-
-
-def get_all_expenses(db_path: str = DB_PATH) -> List[Dict]:
-    """
-    Return all expenses as a list of dicts:
-    [{date, category, amount, note}, ...]
-    """
-    initialize_db(db_path)
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-    cur.execute(
-        "SELECT date, category, amount, note FROM expenses ORDER BY date ASC, id ASC"
-    )
-    rows = cur.fetchall()
-    conn.close()
-
-    return [
-        {"date": d, "category": c, "amount": float(a), "note": (n or "")}
-        for (d, c, a, n) in rows
-    ]
-
-
-def get_monthly_limits(db_path: str = DB_PATH) -> Dict[str, Dict[str, float]]:
-    """
-    Return limits as nested dict: { "YYYY-MM": { "food": 100.0, ... }, ... }
-    """
-    initialize_db(db_path)
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-    cur.execute("SELECT month, category, limit_amount FROM budget_limits")
-    rows = cur.fetchall()
-    conn.close()
-
-    result: Dict[str, Dict[str, float]] = {}
-    for month, category, limit_amount in rows:
-        result.setdefault(month, {})[category] = float(limit_amount)
-    return result
-
-
-def save_monthly_limits(
-    limits: Dict[str, Dict[str, float]], db_path: str = DB_PATH
-) -> None:
-    """
-    Upsert all limits from nested dict {month: {category: limit, ...}, ...}
-    """
-    if not limits:
-        return
-
-    initialize_db(db_path)
-    conn = get_conn(db_path)
-    cur = conn.cursor()
-
-    for month, cats in limits.items():
-        for category, limit_amount in (cats or {}).items():
-            cur.execute(
-                """
-                INSERT INTO budget_limits (month, category, limit_amount)
-                VALUES (?, ?, ?)
-                ON CONFLICT(month, category)
-                DO UPDATE SET limit_amount=excluded.limit_amount
-                """,
-                (month, category, float(limit_amount)),
-            )
-
-    conn.commit()
-    conn.close()
-
-
-# ---------- DataFrame helpers (date, category, amount, description) ----------
+        """
+        )
+        # индекс(ы) оставьте как есть, если они уже есть в файле
+        conn.commit()
 
 
 def get_expenses_df(
@@ -207,62 +35,172 @@ def get_expenses_df(
     end_date: Optional[str] = None,
     category: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Возвращает DataFrame с колонками date/category/amount (+description, если она есть)."""
-    path = db_path or DB_PATH
+    # ленивый дефолт
+    if db_path is None:
+        db_path = DB_PATH
 
-    with sqlite3.connect(path) as conn:
-        # Узнаём реальные колонки таблицы
-        table_info = pd.read_sql_query("PRAGMA table_info(expenses);", conn)
-        existing_cols = set(table_info["name"].tolist())
+    ensure_schema(db_path)
 
-        # Минимально нужные; description добавляем только если есть в схеме
-        cols = ["date", "category", "amount"]
-        if "description" in existing_cols:
-            cols.append("description")
+    where_parts: list[str] = ["WHERE 1=1"]
+    params: list[str] = []
 
-        # Собираем запрос с фильтрами
-        q = f"SELECT {', '.join(cols)} FROM expenses WHERE 1=1"
-        params = {}
-        if start_date:
-            q += " AND date >= :start"
-            params["start"] = start_date
-        if end_date:
-            q += " AND date <= :end"
-            params["end"] = end_date
-        if category:
-            q += " AND category = :category"
-            params["category"] = category
-        q += " ORDER BY date ASC"
+    if start_date:
+        where_parts.append("AND date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_parts.append("AND date <= ?")
+        params.append(end_date)
+    if category:
+        where_parts.append("AND category = ?")
+        params.append(category)
 
-        df = pd.read_sql_query(q, conn, params=params)
+    query = f"""
+        SELECT date, category, amount, COALESCE(description, '') AS description
+        FROM expenses
+        {' '.join(where_parts)}
+        ORDER BY date
+    """
 
-    return df
+    with sqlite3.connect(db_path) as conn:
+        return pd.read_sql_query(
+            query,
+            conn,
+            params=tuple(params),  # 👈 кортеж вместо list
+        )
 
 
-def totals_by_month(df: pd.DataFrame) -> pd.DataFrame:
-    """Суммы по месяцам (YYYY-MM)."""
-    if df.empty:
-        return pd.DataFrame(columns=["month", "amount"])
-
-    out = (
-        df.assign(month=df["date"].dt.to_period("M").astype(str))
-        .groupby("month", as_index=False)[["amount"]]
-        .sum()
-        .sort_values(by=["month"])
-        .reset_index(drop=True)
-    )
+def load_expenses(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
+) -> List[Dict]:
+    """
+    Универсальная выборка в виде списка словарей для меню/печати.
+    """
+    # если у вас уже есть фильтры внутри get_expenses_df — просто прокиньте
+    df = get_expenses_df(start_date=start_date, end_date=end_date, category=category)
+    if df is None or df.empty:
+        return []
+    # гарантируем одинаковые ключи
+    out = []
+    for r in df.to_dict(orient="records"):
+        out.append(
+            {
+                "date": str(r.get("date", "")),
+                "category": str(r.get("category", "")),
+                "amount": float(r.get("amount") or 0.0),
+                "description": r.get("description") or r.get("note") or None,
+            }
+        )
     return out
 
 
-def totals_by_category(df: pd.DataFrame) -> pd.DataFrame:
-    """Суммы по категориям за выбранный диапазон."""
-    if df.empty:
-        return pd.DataFrame(columns=["category", "amount"])
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    description: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> None:
+    if db_path is None:
+        db_path = DB_PATH
 
-    out = (
-        df.groupby("category", as_index=False)[["amount"]]
-        .sum()
-        .sort_values(by=["amount"], ascending=False)
-        .reset_index(drop=True)
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO expenses(date, category, amount, description) VALUES (?, ?, ?, ?)",
+            (date, category, float(amount), description),
+        )
+        conn.commit()
+
+
+# --- Совместимость со старым API (тонкие обёртки) ---
+
+
+def get_conn(db_path: str = DB_PATH):
+    """
+    Старое имя: вернуть соединение. Перед отдачей гарантируем схему.
+    """
+    ensure_schema(db_path)
+    return sqlite3.connect(db_path)
+
+
+def get_all_expenses(
+    start_date: str | None = None,
+    end_date: str | None = None,
+    category: str | None = None,
+    db_path: str = DB_PATH,
+):
+    """
+    Старое имя: получить все расходы (как DataFrame) с фильтрами.
+    """
+    return get_expenses_df(
+        db_path=db_path, start_date=start_date, end_date=end_date, category=category
     )
-    return out
+
+
+def list_categories() -> list[str]:
+    """
+    Вернёт отсортированный список уникальных категорий из БД.
+    """
+    import sqlite3
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT category FROM expenses ORDER BY category ASC")
+        return [r[0] for r in cur.fetchall() if r and r[0]]
+
+
+def migrate_json_to_sqlite(
+    json_path: str = "expenses.json",
+    db_path: str = DB_PATH,
+) -> int:
+    """
+    Перенос из JSON в SQLite. Дубликаты игнорируются.
+    Возвращает число реально добавленных строк.
+    Формат JSON: список словарей с ключами date, category, amount, description (опц.).
+    """
+    import json
+
+    ensure_schema(db_path)
+
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        return 0
+
+    inserted = 0
+    with sqlite3.connect(db_path) as conn:
+        cur = conn.cursor()
+        # На всякий случай – уникальность
+        cur.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_uniq "
+            "ON expenses(date, category, amount, COALESCE(description, ''))"
+        )
+        for row in data:
+            date = str(row.get("date", "")).strip()
+            category = str(row.get("category", "")).strip()
+            # аккуратно приводим сумму
+            try:
+                amount = float(row.get("amount", 0) or 0)
+            except Exception:
+                amount = 0.0
+            desc = row.get("description") or row.get("note") or ""
+
+            if not date or not category:
+                continue
+
+            try:
+                cur.execute(
+                    "INSERT OR IGNORE INTO expenses(date, category, amount, description) VALUES (?,?,?,?)",
+                    (date, category, amount, desc),
+                )
+                inserted += cur.rowcount  # будет 1 если реально вставили, 0 если дубль
+            except Exception:
+                # не падаем на мусорных строках
+                pass
+
+        conn.commit()
+
+    return inserted
