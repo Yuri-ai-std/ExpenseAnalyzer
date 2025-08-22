@@ -1,30 +1,20 @@
-# Ignore SQLite database
-*.db
-*.sqlite3
-
-# Ignore virtual environments
-venv/
+# виртуалки и кэш
 .venv/
-.env/
-
-# Ignore Python bytecode
+venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.mypy_cache/
 
-# Ignore log files and temporary files
-*.log
-*.tmp
-*.swp
+# macOS
 .DS_Store
 
-.vscode/*
-.venv_old/
-# exports
-*.csv
-*.xlsx
+# IDE
+.vscode/
+.idea/
 
-# backups
+# локальные БД и артефакты
+*.db
+*.db-*
 *.bak
-
-# reports
 reports/plots/

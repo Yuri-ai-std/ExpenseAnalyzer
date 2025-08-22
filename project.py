@@ -1,5 +1,5 @@
 # project.py — Expense Analyzer with multi-language support + SQLite
-
+import pandas as pd
 import os
 import csv
 import sqlite3
@@ -9,16 +9,21 @@ from collections import defaultdict, Counter
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 
+import db  # <-- ДОБАВИЛИ: чтобы можно было писать db.get_expenses_df и т.п.
+from db import DB_PATH  # если реально используете константу
+
 from messages import messages
 from utils import load_monthly_limits, save_monthly_limits
 from charts import show_charts
 
-# всё про БД — только из db.py
+# всё про БД – только из db.py (функции)
 from db import (
     ensure_schema,  # инициализация схемы при старте
     get_expenses_df,  # универсальная выборка как DataFrame
     list_categories,  # список категорий (из БД/предопределённый)
 )
+
+# ПУБЛИЧНАЯ запись в БД — отдельным алиасом
 from db import add_expense as db_add_expense
 
 REPORTS_DIR = Path("reports/plots")
@@ -129,17 +134,19 @@ def filter_expenses_by_date_db(
     Возвращает список словарей: {date, category, amount, note}.
     Ничего не печатает (чтобы не мешать тестам).
     """
+
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT date, category, amount, note
+        SELECT date, category, amount, description
         FROM expenses
         WHERE date BETWEEN ? AND ?
         ORDER BY date ASC
         """,
         (start_date, end_date),
     )
+
     rows = cur.fetchall()
     conn.close()
 
@@ -168,42 +175,84 @@ def filter_expenses_by_date(
     return filter_expenses_by_date_db(start_date, end_date, messages, db_path=db_path)
 
 
-def check_budget_limits(conn, budget_limits, messages, start_date=None, end_date=None):
+def check_budget_limits(
+    conn,
+    *,
+    messages: Optional[Dict[str, str]] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    budget_limits: Optional[Dict[str, Dict[str, float]]] = None,
+) -> List[str]:
     """
-    Считает суммы по месяцам/категориям из БД и сравнивает с лимитами.
-    Печатает только превышения.
+    Суммирует расходы по категориям в интервале [start_date; end_date]
+    и сравнивает их с лимитами вида {"YYYY-MM": {"food": 70, ...}}.
+    Возвращает список строк-предупреждений (или пустой список).
     """
-    cur = conn.cursor()
-    params = ()
-    where = ""
-    if start_date and end_date:
-        # сравнение строк YYYY-MM-DD в SQLite корректно
-        where = "WHERE date BETWEEN ? AND ?"
-        params = (str(start_date), str(end_date))
+    messages = messages or {}
+    budget_limits = budget_limits or {}
 
-    cur.execute(
-        f"""
-        SELECT substr(date, 1, 7) AS month, category, SUM(amount) AS total
+    # --- собираем WHERE без None в параметрах ---
+    where_parts: List[str] = ["WHERE 1=1"]
+    params: List[str] = []
+
+    if start_date:
+        where_parts.append("AND date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_parts.append("AND date <= ?")
+        params.append(end_date)
+
+    query = f"""
+        SELECT date, category, amount
         FROM expenses
-        {where}
-        GROUP BY month, category
-        ORDER BY month
-        """,
-        params,
+        {' '.join(where_parts)}
+        ORDER BY date
+    """
+
+    df = pd.read_sql_query(query, conn, params=tuple(params))
+
+    # нет данных в интервале — возвращаем пустой список (тип строго List[str])
+    if df.empty:
+        return []
+
+    # --- агрегируем по месяцам и категориям ---
+    df["month"] = df["date"].str.slice(0, 7)
+    totals = (
+        df.groupby(["month", "category"])["amount"]
+        .sum()
+        .reset_index()  # колонки: month, category, amount
     )
-    for month, category, total in cur.fetchall():
-        if month in budget_limits:
-            limit = budget_limits[month].get(category)
-            if limit is not None and float(total) > limit:
-                print(
-                    messages["over_limit"].format(
-                        category=category, month=month, total=float(total), limit=limit
-                    )
-                )
-        else:
-            # если нет лимитов для месяца
-            if "no_limits_defined" in messages:
-                print(messages["no_limits_defined"].format(month=month))
+
+    out: List[str] = []
+
+    for _, row in totals.iterrows():
+        month: str = row["month"]
+        cat: str = row["category"]
+        total = float(row["amount"])
+
+        # безопасно достаём лимит
+        limit: Optional[float] = None
+        month_limits = budget_limits.get(month) or {}
+        if isinstance(month_limits, dict):
+            raw = month_limits.get(cat)
+            if raw is not None:
+                try:
+                    limit = float(raw)
+                except (TypeError, ValueError):
+                    limit = None
+
+        line = f"{month} {cat}: ${total:.2f}"
+        if limit is not None:
+            status = (
+                messages.get("over_limit", "Over!")
+                if total > limit
+                else messages.get("within_limit", "Within")
+            )
+            line += f" [{status}] (Limit: ${limit:.2f})"
+
+        out.append(line)
+
+    return out
 
 
 def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=None):
@@ -248,38 +297,18 @@ def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=No
 # --------------------------- ввод расходов ---------------------------
 
 
-def add_expense(messages, lang, budget_limits, categories):
-    print(messages["enter_category"])
-    for i, cat in enumerate(categories):
-        print(f"{i + 1}. {cat}")
-
-    try:
-        cat_choice = int(input("> ")) - 1
-        if cat_choice not in range(len(categories)):
-            print(messages["invalid_category"])
-            return
-        category = categories[cat_choice]
-    except ValueError:
-        print(messages["invalid_category"])
-        return
-
-    try:
-        amount = float(input(messages["enter_amount"] + " "))
-    except ValueError:
-        print(messages["invalid_amount"])
-        return
-
-    description = input(messages["enter_description"] + " ")
-    date_str = input(messages["enter_date"] + " ")
-    try:
-        date = datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        print(messages["invalid_date"])
-        return
-
-    # сохраняем сразу в SQLite
-    add_expense(str(date), category, amount, description)
-    print(messages["expense_added"])
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    description: Optional[str] = None,
+    db_path: str = DB_PATH,
+) -> None:
+    """
+    Высокоуровневая обёртка без интерактива — просто прокидывает в БД.
+    Удобно использовать в тестах.
+    """
+    db.add_expense(date=date, category=category, amount=amount, description=description)
 
 
 def _t(key: str, default: str = "") -> str:
@@ -401,6 +430,28 @@ def _set_language():
         print("Unsupported language. Keeping current.")
 
 
+def list_categories() -> list[str]:
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT category FROM expenses ORDER BY category")
+        return [str(r[0]) for r in cur.fetchall()]
+
+
+def _df_records(df):
+    # Всегда переводим DataFrame в list[dict]
+    try:
+        return df.to_dict(orient="records")
+    except Exception:
+        return []
+
+
+def _total_from_any(obj) -> float:
+    # Принимает либо DataFrame, либо list[dict]
+    if hasattr(obj, "to_dict"):
+        obj = _df_records(obj)
+    return sum(float(e.get("amount", 0) or 0) for e in obj or [])
+
+
 # --- адаптеры под функции, которым нужны аргументы ---------------------------
 
 
@@ -452,56 +503,57 @@ def _msgs_lang():
 
 
 # --- Add Expense (DB only) ---
-def _add_expense_adapter():
-    """Add expense: prompt user and write ONLY to SQLite."""
-    msgs = _msgs_lang()
-    cats = categories()
-
-    if not cats:
-        print(_t("no_categories", "No categories defined."))
+def add_expense_adapter() -> None:
+    """
+    Диалог с пользователем + минимальная валидация,
+    потом запись в БД через db.add_expense().
+    """
+    # 1) выбор категории (пример — подставьте ваш источник)
+    categories = list_categories() if "list_categories" in globals() else []
+    if not categories:
+        print("No categories defined.")
         return
 
-    print(_t("enter_category", "Enter category: "))
-    for i, c in enumerate(cats, 1):
+    for i, c in enumerate(categories, 1):
         print(f"{i}. {c}")
-
     try:
-        cat_choice = int(input("> ").strip()) - 1
-        if not (0 <= cat_choice < len(cats)):
-            print(_t("invalid_category", "Invalid category!"))
+        idx = int(input("> ").strip()) - 1
+        if not (0 <= idx < len(categories)):
+            print("Invalid category!")
             return
-        category = cats[cat_choice]
+        category = categories[idx]
     except Exception:
-        print(_t("invalid_category", "Invalid category!"))
+        print("Invalid category!")
         return
 
-    date = input(_t("enter_date", "Enter date (YYYY-MM-DD): ")).strip()
+    # 2) дата
+    date_str = input("Enter date (YYYY-MM-DD): ").strip()
     try:
-        # легкая валидация
-        datetime.strptime(date, "%Y-%m-%d")
+        # валидация формата (а хранить будем строкой)
+        datetime.strptime(date_str, "%Y-%m-%d")
     except Exception:
-        print(_t("invalid_date", "Invalid date! Use YYYY-MM-DD."))
+        print("Invalid date! Use YYYY-MM-DD.")
         return
 
+    # 3) сумма
     try:
-        amount = float(input(_t("enter_amount", "Enter amount: ")).strip())
+        amount = float(input("Enter amount: ").strip())
     except Exception:
-        print(_t("invalid_amount", "Invalid amount! Please enter a number."))
+        print("Invalid amount! Please enter a number.")
         return
 
-    description = input(
-        _t("enter_description", "Enter description (optional): ")
-    ).strip()
-    description = description or None  # ключевой момент!
+    # 4) описание (опционально)
+    desc_input = input("Enter description (optional): ").strip()
+    description: Optional[str] = desc_input or None
 
-    # запись только в БД
-    db_add_expense(
-        date=date,
+    # 5) запись в БД
+    db.add_expense(
+        date=date_str,
         category=category,
         amount=amount,
-        description=description or None,
+        description=description,
     )
-    print(_t("expense_added", "Expense added successfully!"))
+    print("Expense added successfully!")
 
 
 def _call_fn_variants(fn, expenses=None, msgs=None, lang=None):
@@ -623,7 +675,7 @@ def main():
         choice = input(_t("enter_option", "Enter option: ")).strip()
 
         if choice == "1":
-            _add_expense_adapter()
+            add_expense_adapter()
         elif choice == "2":
             _summarize_adapter()
         elif choice == "6":

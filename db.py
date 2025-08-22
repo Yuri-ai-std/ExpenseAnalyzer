@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import sqlite3
 import pandas as pd
 
@@ -10,63 +10,63 @@ DB_PATH = "expenses.db"
 
 
 def ensure_schema(db_path: str = DB_PATH) -> None:
-    """Создаёт/мигрирует схему expenses в SQLite."""
+    import sqlite3
+
     with sqlite3.connect(db_path) as conn:
         cur = conn.cursor()
-
-        # 1) Базовая таблица (в новой схеме уже есть description)
         cur.execute(
             """
-            CREATE TABLE IF NOT EXISTS expenses (
-                date TEXT NOT NULL,           -- YYYY-MM-DD
+            CREATE TABLE IF NOT EXISTS expenses(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
                 category TEXT NOT NULL,
                 amount REAL NOT NULL,
                 description TEXT
             )
         """
         )
-
-        # 2) Миграция для старых БД: добавить description, если его нет
-        cur.execute("PRAGMA table_info(expenses)")
-        cols = [r[1] for r in cur.fetchall()]
-        if "description" not in cols:
-            cur.execute("ALTER TABLE expenses ADD COLUMN description TEXT")
-
-        # 3) Индексы
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)")
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_expenses_cat  ON expenses(category)"
-        )
-
-        # Уникальность записи (защита от дублей)
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_uniq "
-            "ON expenses(date, category, amount, COALESCE(description,''))"
-        )
-
+        # индекс(ы) оставьте как есть, если они уже есть в файле
         conn.commit()
 
 
-def add_expense(
-    date: str,
-    category: str,
-    amount: float,
-    description: Optional[str] = None,
-    db_path: str = DB_PATH,
-) -> None:
+def get_expenses_df(
+    db_path: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
+) -> pd.DataFrame:
+    # ленивый дефолт
+    if db_path is None:
+        db_path = DB_PATH
+
+    ensure_schema(db_path)
+
+    where_parts: list[str] = ["WHERE 1=1"]
+    params: list[str] = []
+
+    if start_date:
+        where_parts.append("AND date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_parts.append("AND date <= ?")
+        params.append(end_date)
+    if category:
+        where_parts.append("AND category = ?")
+        params.append(category)
+
+    query = f"""
+        SELECT date, category, amount, COALESCE(description, '') AS description
+        FROM expenses
+        {' '.join(where_parts)}
+        ORDER BY date
     """
-    Добавляет расход ТОЛЬКО в SQLite (никакого JSON).
-    """
+
     with sqlite3.connect(db_path) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO expenses(date, category, amount, description)
-            VALUES (?,?,?,?)
-            """,
-            (date, category, float(amount), description),  # ← можно без "or None"
+        return pd.read_sql_query(
+            query,
+            conn,
+            params=tuple(params),  # 👈 кортеж вместо list
         )
-        conn.commit()
 
 
 def load_expenses(
@@ -95,33 +95,23 @@ def load_expenses(
     return out
 
 
-def get_expenses_df(
-    db_path: str = DB_PATH,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    category: Optional[str] = None,
-) -> pd.DataFrame:
-    """
-    Универсальная выборка для экранов/графиков/экспорта.
-    """
-    q = (
-        "SELECT date, category, amount, COALESCE(description,'') AS description "
-        "FROM expenses WHERE 1=1"
-    )
-    params: list = []
-    if start_date:
-        q += " AND date >= ?"
-        params.append(start_date)
-    if end_date:
-        q += " AND date <= ?"
-        params.append(end_date)
-    if category:
-        q += " AND category = ?"
-        params.append(category)
-    q += " ORDER BY date ASC"
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    description: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> None:
+    if db_path is None:
+        db_path = DB_PATH
 
     with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(q, conn, params=params)
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO expenses(date, category, amount, description) VALUES (?, ?, ?, ?)",
+            (date, category, float(amount), description),
+        )
+        conn.commit()
 
 
 # --- Совместимость со старым API (тонкие обёртки) ---
