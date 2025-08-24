@@ -1,8 +1,19 @@
 import json
 import os
 from typing import Optional, Dict, Any
+from datetime import date
 
 BUDGET_LIMITS_FILE = "budget_limits.json"
+
+
+def month_key(d: date) -> str:
+    """
+    Возвращает ключ месяца в формате 'YYYY-MM' для переданной даты.
+    Пример:
+        >>> month_key(date(2025, 8, 23))
+        '2025-08'
+    """
+    return f"{d.year:04d}-{d.month:02d}"
 
 
 def load_monthly_limits(
