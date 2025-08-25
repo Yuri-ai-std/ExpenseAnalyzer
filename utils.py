@@ -3,7 +3,7 @@ import os
 from typing import Optional, Dict, Any
 from datetime import date
 
-BUDGET_LIMITS_FILE = "budget_limits.json"
+BUDGET_LIMITS_FILE = "data/budget_limits.json"
 
 
 def month_key(d: date) -> str:

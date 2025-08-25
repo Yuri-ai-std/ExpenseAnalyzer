@@ -34,5 +34,21 @@
     "rent": 999.99,
     "groceries": 350.0,
     "other": 120.0
+  },
+  "2024-05": {
+    "entertainment": 0.0,
+    "food": 0.0,
+    "groceries": 0.0,
+    "other": 0.0,
+    "transport": 0.0,
+    "utilities": 0.0
+  },
+  "2025-08": {
+    "entertainment": 100.0,
+    "food": 150.0,
+    "groceries": 300.0,
+    "other": 200.0,
+    "transport": 80.0,
+    "utilities": 90.0
   }
 }

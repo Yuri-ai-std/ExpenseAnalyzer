@@ -6,7 +6,7 @@ import sqlite3
 import pandas as pd
 
 # Путь к БД по умолчанию
-DB_PATH = "expenses.db"
+DB_PATH = "data/expenses.db"
 
 
 def ensure_schema(db_path: str = DB_PATH) -> None:
