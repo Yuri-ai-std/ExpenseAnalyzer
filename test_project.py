@@ -1,20 +1,18 @@
 # test_project.py
+import inspect
+import os
 import sqlite3
 from pathlib import Path
-from typing import Any, List, Dict
+from typing import Any, Dict, List
 
 import pandas as pd
 import pytest
-import inspect
 
-import project as prj
 import db
 import db as dbmod
+import project as prj
 from charts import show_charts
-
-import os
-from project import add_expense, DB_PATH
-
+from project import DB_PATH, add_expense
 
 # ---------- маленькие утилиты для тестов ----------
 

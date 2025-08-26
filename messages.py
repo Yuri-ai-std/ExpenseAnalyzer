@@ -65,6 +65,10 @@ messages = {
         "download_csv": "Download CSV",
         "upload_csv": "Upload limits CSV",
         "csv_import_failed": "CSV import failed",
+        # --- Settings (limits / io / audit) ---
+        "download_json": "Download JSON",
+        "save_to_file": "Save to file",
+        "clear_audit": "Clear audit",
         # --- Exit ---
         "saving_data": "Saving data...",
         "goodbye": "Goodbye!",
@@ -133,6 +137,10 @@ messages = {
         "download_csv": "Télécharger CSV",
         "upload_csv": "Importer des plafonds (CSV)",
         "csv_import_failed": "Échec de l'import CSV",
+        # --- Settings (limits / io / audit) ---
+        "download_json": "Télécharger JSON",
+        "save_to_file": "Enregistrer dans un fichier",
+        "clear_audit": "Effacer l'audit",
         # --- Exit ---
         "saving_data": "Sauvegarde des données...",
         "goodbye": "Au revoir !",
@@ -201,6 +209,10 @@ messages = {
         "download_csv": "Descargar CSV",
         "upload_csv": "Importar límites (CSV)",
         "csv_import_failed": "Error al importar CSV",
+        # --- Settings (limits / io / audit) ---
+        "download_json": "Descargar JSON",
+        "save_to_file": "Guardar en archivo",
+        "clear_audit": "Borrar auditoría",
         # --- Exit ---
         "saving_data": "Guardando datos...",
         "goodbye": "¡Adiós!",

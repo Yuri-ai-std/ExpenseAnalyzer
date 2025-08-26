@@ -1,31 +1,30 @@
-import streamlit as st
-import sqlite3
 import csv
-from io import StringIO, BytesIO
-from pathlib import Path
-from datetime import datetime
-import pandas as pd
-
-from messages import messages
-from db import (
-    get_expenses_df,
-    add_expense,
-    list_categories as _list_categories,
-    list_categories,
-)
-
-import pandas as pd
-from datetime import date, timedelta
-from project import check_budget_limits
-from datetime import datetime
-from datetime import date as _date
-import altair as alt
-
 import json
+import re
+import sqlite3
 from datetime import date
-from utils import load_monthly_limits, save_monthly_limits, month_key
+from datetime import date as _date
+from datetime import datetime, timedelta
+from io import BytesIO, StringIO
+from pathlib import Path
+
+import altair as alt
+import pandas as pd
+import streamlit as st
+
+from db import add_expense, get_expenses_df
 from db import list_categories
+from db import list_categories as _list_categories
+from messages import messages
 from project import check_budget_limits
+from utils import (
+    DATA_DIR,
+    db_path_for,
+    limits_path_for,
+    load_monthly_limits,
+    month_key,
+    save_monthly_limits,
+)
 
 
 def export_df_to_excel_button(df: pd.DataFrame, filename: str = "expenses.xlsx"):
@@ -274,6 +273,17 @@ msgs = messages[st.session_state["lang"]]
 
 st.set_page_config(page_title="ExpenseAnalyzer", layout="wide")
 
+# 👉 Определяем активного пользователя (default при старте)
+current_user = st.session_state.get("current_user", "default")
+
+# чтение лимитов пользователя
+limits = load_monthly_limits(user=current_user)
+
+# ...изменили словарь limits на форме...
+
+# сохранение лимитов пользователя
+save_monthly_limits(limits, user=current_user)
+
 
 def _fetch_categories() -> list[str]:
     # 1) если есть list_categories в db.py — используйте его
@@ -440,7 +450,7 @@ elif choice == "Add Expense":
 
             # Сохранение
             if not has_error:
-                note_norm = (note or "").strip() or None
+                note_norm = (note or "").strip()
                 try:
                     add_expense(
                         date=str(d),
@@ -765,6 +775,134 @@ elif choice == "Settings":
     msgs = messages[lang]
 
     st.divider()
+
+    # --- Users / Profiles -------------------------------------------------
+st.subheader("User / Profile")
+
+
+# 1) собрать список профилей из папки data (ищем <user>_expenses.db и <user>_budget_limits.json)
+def _list_users() -> list[str]:
+    users: set[str] = set()
+    DATA_DIR.mkdir(exist_ok=True)
+    for p in Path(DATA_DIR).glob("*_expenses.db"):
+        users.add(p.name.replace("_expenses.db", ""))
+    for p in Path(DATA_DIR).glob("*_budget_limits.json"):
+        users.add(p.name.replace("_budget_limits.json", ""))
+    if not users:
+        users.add("default")
+    return sorted(users)
+
+
+users = _list_users()
+
+# 2) активный пользователь (в session_state хранится навсегда для сессии)
+current_user: str = st.session_state.get("current_user", "default")
+if current_user not in users:
+    current_user = "default"
+
+col_u1, col_u2 = st.columns([2, 1])
+
+with col_u1:
+    sel = st.selectbox(
+        "Active user",
+        users,
+        index=users.index(current_user) if current_user in users else 0,
+        help="Pick a profile to work with",
+    )
+
+with col_u2:
+    # форма создания нового профиля
+    with st.popover("New profile"):
+        st.write("Allowed: letters, digits, _ and -")
+        new_name = st.text_input("Profile name", "")
+        create = st.button("Create", type="primary", use_container_width=True)
+        if create:
+            name = new_name.strip().lower()
+            if not name:
+                st.error("Empty name.")
+            elif not re.fullmatch(r"[a-z0-9_-]{1,32}", name):
+                st.error("Only [a-z0-9_-], up to 32 chars.")
+            else:
+                # создать пустые файлы путей (БД появится по первой записи)
+                DATA_DIR.mkdir(exist_ok=True)
+                # создаём пустой файл лимитов, если его нет
+                limits_path_for(name).write_text("{}", encoding="utf-8")
+                # расширяем список и сразу делаем активным
+                users = sorted(set(users) | {name})
+                st.session_state["current_user"] = name
+                st.success(f"Profile '{name}' created and selected.")
+                st.rerun()
+
+# переключение активного пользователя
+if sel != current_user:
+    st.session_state["current_user"] = sel
+    st.toast(f"Switched to '{sel}'", icon="👤")
+    st.rerun()
+
+current_user = st.session_state["current_user"]
+st.caption(
+    f"Data files:  DB → `{db_path_for(current_user)}`,  limits → `{limits_path_for(current_user)}`"
+)
+
+st.divider()
+
+# --- Month & Limits editor (ВАШ текущий редактор) --------------------
+# ↓↓↓ ничего кардинально менять не нужно — просто используем current_user ↓↓↓
+# пример: загрузка всех лимитов и выбор текущего месяца
+all_limits = load_monthly_limits(user=current_user) or {}
+col_m1, col_m2 = st.columns([1, 2])
+with col_m1:
+    month = st.date_input(
+        "Month", value=date.today().replace(day=1), format="YYYY/MM/DD"
+    )
+mk = month_key(month)
+
+# подготовить значения по категориям (пример для ваших категорий)
+try:
+    categories = list_categories() or []
+except Exception:
+    categories = []
+
+st.caption("Categories: " + (", ".join(categories) if categories else "—"))
+
+# рендер числовых полей
+limits_for_month = dict(all_limits.get(mk, {}))
+for cat in categories:
+    limits_for_month[cat] = float(limits_for_month.get(cat, 0.0))
+
+with st.form("limits_form", clear_on_submit=False):
+    # поля по категориям
+    new_limits = {}
+    for cat in categories:
+        new_limits[cat] = st.number_input(
+            cat, value=float(limits_for_month.get(cat, 0.0)), min_value=0.0, step=10.0
+        )
+
+    c1, c2 = st.columns(2)
+    with c1:
+        save_btn = st.form_submit_button(
+            "Save", type="primary", use_container_width=True
+        )
+    with c2:
+        clear_btn = st.form_submit_button(
+            "Clear month limits", use_container_width=True
+        )
+
+    if save_btn:
+        before = dict(all_limits.get(mk, {}))
+        all_limits[mk] = new_limits
+        save_monthly_limits(all_limits, user=current_user)
+        # лог/вспышка/перерисовка — как у вас уже сделано
+        st.session_state["flash"] = ("success", "Saved!")
+        st.rerun()
+
+    if clear_btn:
+        before = dict(all_limits.get(mk, {}))
+        if mk in all_limits:
+            del all_limits[mk]
+            save_monthly_limits(all_limits, user=current_user)
+        st.session_state["flash"] = ("success", "Cleared!")
+        st.rerun()
 
     # ---- месяц и список категорий ----
     col1, col2 = st.columns(2)

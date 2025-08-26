@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from utils import load_monthly_limits, save_monthly_limits, month_key
+from utils import load_monthly_limits, month_key, save_monthly_limits
 
 
 def test_month_key_basic():

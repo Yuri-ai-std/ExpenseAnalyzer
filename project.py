@@ -1,30 +1,27 @@
 # project.py — Expense Analyzer with multi-language support + SQLite
-import pandas as pd
-import os
 import csv
-import sqlite3
 import json
+import os
+import sqlite3
+from collections import Counter, defaultdict
 from datetime import datetime
-from collections import defaultdict, Counter
-from typing import List, Dict, Optional, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import pandas as pd
 
 import db  # <-- ДОБАВИЛИ: чтобы можно было писать db.get_expenses_df и т.п.
-from db import DB_PATH  # если реально используете константу
-
-from messages import messages
-from utils import load_monthly_limits, save_monthly_limits
 from charts import show_charts
 
-# всё про БД – только из db.py (функции)
-from db import (
-    ensure_schema,  # инициализация схемы при старте
-    get_expenses_df,  # универсальная выборка как DataFrame
-    list_categories,  # список категорий (из БД/предопределённый)
-)
-
 # ПУБЛИЧНАЯ запись в БД — отдельным алиасом
+# всё про БД – только из db.py (функции)
+from db import DB_PATH  # если реально используете константу
+from db import ensure_schema  # инициализация схемы при старте
+from db import get_expenses_df  # универсальная выборка как DataFrame
+from db import list_categories  # список категорий (из БД/предопределённый)
 from db import add_expense as db_add_expense
+from messages import messages
+from utils import load_monthly_limits, save_monthly_limits
 
 REPORTS_DIR = Path("reports/plots")
 
@@ -384,9 +381,10 @@ def _ask(prompt_key: str, fallback: str) -> str:
 
 
 def _generate_charts():
-    import charts
-    from pathlib import Path
     from datetime import datetime
+    from pathlib import Path
+
+    import charts
 
     start = _ask("filter_start_date", "Enter start date (YYYY-MM-DD): ")
     end = _ask("filter_end_date", "Enter end date (YYYY-MM-DD): ")
@@ -483,7 +481,8 @@ def get_budget_limits() -> dict:
 
 def categories() -> list[str]:
     # можно читать из budget_limits.json, а если файла нет — дефолты
-    import json, os
+    import json
+    import os
 
     try:
         if os.path.exists("budget_limits.json"):

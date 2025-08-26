@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import re
 from pathlib import Path
-from typing import Dict, Set, List
+from typing import Dict, List, Set
 
 REPO_ROOT = Path(__file__).resolve().parent
 
