@@ -1,8 +1,17 @@
-#  requirements.txt
+# requirements.txt
 
+# --- тестирование ---
 pytest==8.1.1
-pandas==2.2.2
-matplotlib==3.8.4
+
+# --- работа с данными ---
+pandas>=2.2.2
+matplotlib>=3.8.4
 XlsxWriter>=3.2.0
 openpyxl>=3.1.2
-watchdog
+
+# --- утилиты ---
+watchdog>=6.0.0
+
+# --- форматирование и сортировка импортов ---
+black==24.4.2
+isort==5.13.2

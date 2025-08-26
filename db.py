@@ -1,48 +1,78 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional, List, Dict, Any
 import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
 
-# Путь к БД по умолчанию
-DB_PATH = "data/expenses.db"
+from utils import DATA_DIR
 
 
-def ensure_schema(db_path: str = DB_PATH) -> None:
-    import sqlite3
+# 🔹 Хелпер для получения пути к БД пользователя
+def get_db_path(user: str = "default") -> str:
+    """Возвращает путь к БД конкретного пользователя"""
+    user_dir = DATA_DIR / user
+    user_dir.mkdir(exist_ok=True)
+    return str(user_dir / "expenses.db")
 
-    with sqlite3.connect(db_path) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS expenses(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT NOT NULL,
-                category TEXT NOT NULL,
-                amount REAL NOT NULL,
-                description TEXT
-            )
+
+# 🔹 Путь по умолчанию (для старта без логина)
+DB_PATH = get_db_path("default")
+
+
+# === Пример использования в функциях ===
+
+
+def ensure_schema(db_path: Optional[str] = None):
+    path = db_path or DB_PATH
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute(
         """
+        CREATE TABLE IF NOT EXISTS expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            category TEXT,
+            amount REAL,
+            description TEXT
         )
-        # индекс(ы) оставьте как есть, если они уже есть в файле
-        conn.commit()
+        """
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_expenses_df(
     db_path: Optional[str] = None,
+    *,  # делаем параметры ниже только именованными
+    # “правильные” имена:
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
+    # алиасы для обратной совместимости:
+    start: Optional[str] = None,
+    end: Optional[str] = None,
 ) -> pd.DataFrame:
-    # ленивый дефолт
-    if db_path is None:
-        db_path = DB_PATH
+    """
+    Возвращает DataFrame с расходами. Фильтры по дате и категории — опциональны.
 
-    ensure_schema(db_path)
+    Поддерживаются оба набора имён:
+    - start_date / end_date / category
+    - start / end / category
+    """
+    # Сводим алиасы к основным именам
+    if start_date is None:
+        start_date = start
+    if end_date is None:
+        end_date = end
+
+    # ---- дальше ваша текущая реализация ----
+    if db_path is None:
+        db_path = DB_PATH  # если у вас есть глобальный путь
 
     where_parts: list[str] = ["WHERE 1=1"]
-    params: list[str] = []
+    params: list[Any] = []
 
     if start_date:
         where_parts.append("AND date >= ?")
@@ -62,11 +92,25 @@ def get_expenses_df(
     """
 
     with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(
-            query,
-            conn,
-            params=tuple(params),  # 👈 кортеж вместо list
-        )
+        return pd.read_sql_query(query, conn, params=params)
+
+
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    description: str = "",
+    db_path: Optional[str] = None,
+):
+    path = db_path or DB_PATH
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO expenses (date, category, amount, description) VALUES (?, ?, ?, ?)",
+        (date, category, amount, description),
+    )
+    conn.commit()
+    conn.close()
 
 
 def load_expenses(
@@ -93,25 +137,6 @@ def load_expenses(
             }
         )
     return out
-
-
-def add_expense(
-    date: str,
-    category: str,
-    amount: float,
-    description: Optional[str] = None,
-    db_path: Optional[str] = None,
-) -> None:
-    if db_path is None:
-        db_path = DB_PATH
-
-    with sqlite3.connect(db_path) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO expenses(date, category, amount, description) VALUES (?, ?, ?, ?)",
-            (date, category, float(amount), description),
-        )
-        conn.commit()
 
 
 # --- Совместимость со старым API (тонкие обёртки) ---
@@ -143,7 +168,6 @@ def list_categories() -> list[str]:
     """
     Вернёт отсортированный список уникальных категорий из БД.
     """
-    import sqlite3
 
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
