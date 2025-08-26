@@ -305,7 +305,14 @@ def add_expense(
     Высокоуровневая обёртка без интерактива — просто прокидывает в БД.
     Удобно использовать в тестах.
     """
-    db.add_expense(date=date, category=category, amount=amount, description=description)
+    desc = (description or "").strip()
+    db.add_expense(
+        date=date,
+        category=category,
+        amount=amount,
+        description=desc,
+        db_path=db_path,
+    )
 
 
 def _t(key: str, default: str = "") -> str:
@@ -550,7 +557,7 @@ def add_expense_adapter() -> None:
         date=date_str,
         category=category,
         amount=amount,
-        description=description,
+        description=(description or "").strip(),
     )
     print("Expense added successfully!")
 
