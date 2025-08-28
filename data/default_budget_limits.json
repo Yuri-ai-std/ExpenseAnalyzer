@@ -1,1 +1,10 @@
-{}
+{
+  "2025-08": {
+    "entertainment": 22640.02,
+    "food": 2784.62,
+    "groceries": 14391.74,
+    "other": 3733.88,
+    "transport": 4156.83,
+    "utilities": 2667.98
+  }
+}

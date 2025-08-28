@@ -2,11 +2,35 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Iterable, Union
+from os import PathLike
 
 import pandas as pd
 
 from utils import DATA_DIR
+
+
+# --- Универсальный резолвер пути БД: явный путь > session_state > дефолт ---
+def _resolve_db_path(db_path: Optional[str] = None) -> str:
+    """
+    Возвращает путь к БД в следующем приоритете:
+    1) явный аргумент db_path, если передан;
+    2) st.session_state['ACTIVE_DB_PATH'] (если streamlit доступен);
+    3) путь по умолчанию для пользователя 'default'.
+    """
+    if db_path:
+        return db_path
+    try:
+        # Локальный импорт, чтобы модуль работал и вне Streamlit (в тестах/скриптах)
+        import streamlit as st  # type: ignore
+
+        p = st.session_state.get("ACTIVE_DB_PATH")
+        if p:
+            return str(p)
+    except Exception:
+        pass
+    # Фолбэк на дефолтного пользователя (и одновременно гарантия существования data/)
+    return get_db_path("default")
 
 
 # 🔹 Хелпер для получения пути к БД пользователя
@@ -25,55 +49,40 @@ DB_PATH = get_db_path("default")
 
 
 def ensure_schema(db_path: Optional[str] = None):
-    path = db_path or DB_PATH
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
-            category TEXT,
-            amount REAL,
-            description TEXT
+    """
+    Создаёт таблицы в базе данных, если их ещё нет.
+    """
+    # Унифицированное определение пути
+    path = _resolve_db_path(db_path)
+
+    with sqlite3.connect(path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT,
+                category TEXT,
+                amount REAL,
+                description TEXT
+            )
+            """
         )
-        """
-    )
-    conn.commit()
-    conn.close()
+        conn.commit()
 
 
 def get_expenses_df(
     db_path: Optional[str] = None,
-    *,  # делаем параметры ниже только именованными
-    # “правильные” имена:
+    *,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
-    # алиасы для обратной совместимости:
-    start: Optional[str] = None,
-    end: Optional[str] = None,
 ) -> pd.DataFrame:
-    """
-    Возвращает DataFrame с расходами. Фильтры по дате и категории — опциональны.
-
-    Поддерживаются оба набора имён:
-    - start_date / end_date / category
-    - start / end / category
-    """
-    # Сводим алиасы к основным именам
-    if start_date is None:
-        start_date = start
-    if end_date is None:
-        end_date = end
-
-    # ---- дальше ваша текущая реализация ----
-    if db_path is None:
-        db_path = DB_PATH  # если у вас есть глобальный путь
+    """Читает таблицу expenses как DataFrame c фильтрами."""
+    db_path = _resolve_db_path(db_path)
 
     where_parts: list[str] = ["WHERE 1=1"]
     params: list[Any] = []
-
     if start_date:
         where_parts.append("AND date >= ?")
         params.append(start_date)
@@ -84,49 +93,56 @@ def get_expenses_df(
         where_parts.append("AND category = ?")
         params.append(category)
 
-    query = f"""
+    sql = f"""
         SELECT date, category, amount, COALESCE(description, '') AS description
         FROM expenses
         {' '.join(where_parts)}
         ORDER BY date
     """
-
     with sqlite3.connect(db_path) as conn:
-        return pd.read_sql_query(query, conn, params=params)
+        df = pd.read_sql_query(sql, conn, params=params)
+    return df
 
 
 def add_expense(
+    *,
     date: str,
     category: str,
     amount: float,
-    description: str = "",
+    description: Optional[str] = None,
     db_path: Optional[str] = None,
-):
-    path = db_path or DB_PATH
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO expenses (date, category, amount, description) VALUES (?, ?, ?, ?)",
-        (date, category, amount, description),
-    )
-    conn.commit()
-    conn.close()
+) -> None:
+    db_path = _resolve_db_path(db_path)
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "INSERT INTO expenses (date, category, amount, description) VALUES (?, ?, ?, ?)",
+            (date, category, amount, description or None),
+        )
+        conn.commit()
 
 
 def load_expenses(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
+    db_path: Optional[str] = None,
 ) -> List[Dict]:
     """
-    Универсальная выборка в виде списка словарей для меню/печати.
+    Универсальная выборка расходов как список словарей (для меню/печати).
+    Путь к БД: явный аргумент > session_state > дефолт.
     """
-    # если у вас уже есть фильтры внутри get_expenses_df — просто прокиньте
-    df = get_expenses_df(start_date=start_date, end_date=end_date, category=category)
+    path = _resolve_db_path(db_path)
+
+    df = get_expenses_df(
+        db_path=path,
+        start_date=start_date,
+        end_date=end_date,
+        category=category,
+    )
     if df is None or df.empty:
         return []
-    # гарантируем одинаковые ключи
-    out = []
+
+    out: List[Dict] = []
     for r in df.to_dict(orient="records"):
         out.append(
             {
@@ -142,51 +158,54 @@ def load_expenses(
 # --- Совместимость со старым API (тонкие обёртки) ---
 
 
-def get_conn(db_path: str = DB_PATH):
+def get_conn(db_path: Optional[str] = None):
     """
     Старое имя: вернуть соединение. Перед отдачей гарантируем схему.
+    Если путь не передан — берём активный (через session_state).
     """
-    ensure_schema(db_path)
-    return sqlite3.connect(db_path)
+    path = _resolve_db_path(db_path)
+    ensure_schema(path)
+    return sqlite3.connect(path)
 
 
 def get_all_expenses(
-    start_date: str | None = None,
-    end_date: str | None = None,
-    category: str | None = None,
-    db_path: str = DB_PATH,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
+    db_path: Optional[str] = None,
 ):
     """
     Старое имя: получить все расходы (как DataFrame) с фильтрами.
     """
+    path = _resolve_db_path(db_path)
     return get_expenses_df(
-        db_path=db_path, start_date=start_date, end_date=end_date, category=category
+        db_path=path, start_date=start_date, end_date=end_date, category=category
     )
 
 
-def list_categories() -> list[str]:
+def list_categories(db_path: Optional[str] = None) -> list[str]:
     """
-    Вернёт отсортированный список уникальных категорий из БД.
+    Список категорий по алфавиту.
     """
-
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT DISTINCT category FROM expenses ORDER BY category ASC")
-        return [r[0] for r in cur.fetchall() if r and r[0]]
+    path = _resolve_db_path(db_path)
+    sql = "SELECT DISTINCT category FROM expenses ORDER BY category ASC"
+    with sqlite3.connect(path) as conn:
+        cur = conn.execute(sql)
+        return [str(r[0]) for r in cur.fetchall()]
 
 
 def migrate_json_to_sqlite(
-    json_path: str = "expenses.json",
-    db_path: str = DB_PATH,
+    json_path: Union[str, PathLike] = "expenses.json",
+    db_path: Optional[str] = None,
 ) -> int:
     """
     Перенос из JSON в SQLite. Дубликаты игнорируются.
-    Возвращает число реально добавленных строк.
-    Формат JSON: список словарей с ключами date, category, amount, description (опц.).
+    Формат JSON: [{date, category, amount, description?}, ...]
     """
     import json
 
-    ensure_schema(db_path)
+    path = _resolve_db_path(db_path)
+    ensure_schema(path)
 
     try:
         with open(json_path, "r", encoding="utf-8") as f:
@@ -195,9 +214,8 @@ def migrate_json_to_sqlite(
         return 0
 
     inserted = 0
-    with sqlite3.connect(db_path) as conn:
+    with sqlite3.connect(path) as conn:
         cur = conn.cursor()
-        # На всякий случай – уникальность
         cur.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_uniq "
             "ON expenses(date, category, amount, COALESCE(description, ''))"
@@ -205,7 +223,6 @@ def migrate_json_to_sqlite(
         for row in data:
             date = str(row.get("date", "")).strip()
             category = str(row.get("category", "")).strip()
-            # аккуратно приводим сумму
             try:
                 amount = float(row.get("amount", 0) or 0)
             except Exception:
@@ -217,12 +234,13 @@ def migrate_json_to_sqlite(
 
             try:
                 cur.execute(
-                    "INSERT OR IGNORE INTO expenses(date, category, amount, description) VALUES (?,?,?,?)",
+                    "INSERT OR IGNORE INTO expenses(date, category, amount, description) "
+                    "VALUES (?,?,?,?)",
                     (date, category, amount, desc),
                 )
-                inserted += cur.rowcount  # будет 1 если реально вставили, 0 если дубль
+                inserted += cur.rowcount
             except Exception:
-                # не падаем на мусорных строках
+                # пропускаем мусорные строки
                 pass
 
         conn.commit()

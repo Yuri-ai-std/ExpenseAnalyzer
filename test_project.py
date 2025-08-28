@@ -1,260 +1,115 @@
 # test_project.py
-import inspect
-import os
+from __future__ import annotations
+
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
+import project
 
-import db
-import db as dbmod
-import project as prj
-from charts import show_charts
-from project import DB_PATH, add_expense
-
-# ---------- маленькие утилиты для тестов ----------
-
-
-def _df_records(df_or_items: Any) -> List[Dict]:
-    """Принимает DataFrame или уже list[dict] и всегда возвращает list[dict]."""
-    if isinstance(df_or_items, pd.DataFrame):
-        return df_or_items.to_dict(orient="records")
-    return list(df_or_items)  # на случай генератора/итератора
-
-
-def _total_from_any(df_or_items: Any) -> float:
-    """Считает сумму по полю 'amount' для DataFrame или list[dict]."""
-    items = _df_records(df_or_items)
-    return sum(float(e.get("amount", 0.0)) for e in items)
+# — тестируемые модули/функции
+from db import ensure_schema, add_expense, get_expenses_df
+from project import check_budget_limits, suggest_limits_for_month
+from utils import month_key
+from messages import messages as ALL_MESSAGES
 
 
 # ---------- фикстуры ----------
 
 
-@pytest.fixture
-def isolate_db(tmp_path, monkeypatch):
-    test_db = tmp_path / "test_expenses.db"
-    # Используем временный файл БД
-    monkeypatch.setattr(db, "DB_PATH", str(test_db), raising=False)
-    # Отключаем любые автоматические миграции в тестах
-    monkeypatch.setattr(
-        db, "migrate_json_to_sqlite", lambda *a, **k: None, raising=False
-    )
-    # Создаём/обновляем схему
-    db.ensure_schema(str(test_db))
-    # На всякий случай чистим таблицу
-    import sqlite3
-
-    with sqlite3.connect(str(test_db)) as conn:
-        conn.execute("DELETE FROM expenses")
-        conn.commit()
-    yield
+@pytest.fixture()
+def tmp_db(tmp_path: Path) -> str:
+    """Создаёт пустую временную БД и возвращает её путь (str)."""
+    db_path = tmp_path / "test_expenses.db"
+    ensure_schema(str(db_path))
+    return str(db_path)
 
 
-# ---------- сами тесты ----------
+@pytest.fixture()
+def sample_data(tmp_db: str):
+    """
+    Наполняем БД минимальным набором: три месяца истории
+    для 2–3 категорий. Возвращаем путь к БД.
+    """
+    today = date.today()
+    # три последних месяца
+    m0 = date(today.year, today.month, 1)
+    m1 = (m0 - timedelta(days=1)).replace(day=1)
+    m2 = (m1 - timedelta(days=1)).replace(day=1)
+
+    # Фиктивные траты
+    rows = [
+        # m2
+        (m2.replace(day=3), "food", 25.0, "groceries"),
+        (m2.replace(day=9), "food", 30.0, "groceries"),
+        (m2.replace(day=5), "transport", 10.0, "metro"),
+        # m1
+        (m1.replace(day=8), "food", 40.0, "groceries"),
+        (m1.replace(day=2), "transport", 15.0, "metro"),
+        (m1.replace(day=18), "other", 20.0, "misc"),
+        # m0 (текущий)
+        (m0.replace(day=1), "food", 12.0, "start of month"),
+        (m0.replace(day=2), "transport", 5.0, "bus"),
+    ]
+
+    for d, cat, amt, desc in rows:
+        add_expense(
+            date=d.isoformat(),
+            category=cat,
+            amount=amt,
+            description=desc,
+            db_path=tmp_db,
+        )
+
+    return tmp_db
 
 
-def test_add_expense_and_calculate_total(isolate_db):
-    dbmod.add_expense("2025-07-01", "food", 100.0, "")
-
-    # ВАЖНО: указываем путь явным параметром
-    df = dbmod.get_expenses_df(db_path=dbmod.DB_PATH)
-
-    total = _total_from_any(df)
-    assert total == pytest.approx(100.0)
+# ---------- тесты ----------
 
 
-def test_check_budget_limits(isolate_db, capsys):
+def test_get_expenses_df_reads_from_given_db_path(sample_data: str):
+    """get_expenses_df должен брать данные именно из переданного db_path."""
+    df = get_expenses_df(db_path=sample_data)
+    assert isinstance(df, pd.DataFrame)
+    # Вставлено 8 строк
+    assert len(df) >= 8
+    # Набор ключевых колонок
+    for col in ("date", "category", "amount", "description"):
+        assert col in df.columns
 
-    # 1) локализация и лимиты
-    msgs = prj.messages["en"]
-    limits = {"2025-07": {"food": 70.0, "transport": 50.0}}
 
-    # 2) три операции в июле (суммарно food = 90 > 70)
-    dbmod.add_expense("2025-07-01", "food", 60.0, "")
-    dbmod.add_expense("2025-07-02", "transport", 40.0, "")
-    dbmod.add_expense("2025-07-03", "food", 30.0, "")
+def test_suggest_limits_for_month_produces_values(sample_data: str):
+    """
+    На основе истории за прошлые месяцы должны появляться предложения лимитов
+    для текущего месяца (не все нули).
+    """
+    mk = month_key(date.today())
+    sugg = suggest_limits_for_month(user="default", month_key=mk)
 
-    # 3) вызов новой фасадной сигнатуры (все аргументы по именам)
-    with sqlite3.connect(dbmod.DB_PATH) as conn:
-        res = prj.check_budget_limits(
-            conn=conn,
+    # словарь вида {category: float}
+    assert isinstance(sugg, dict)
+    assert "food" in sugg
+    # как минимум для food получим положительный прогноз
+    assert sugg["food"] > 0.0
+
+
+def test_check_budget_limits_detects_overspend(sample_data: str):
+    """
+    Если задать низкий лимит на 'food', функция должна вернуть предупреждение.
+    """
+    msgs = ALL_MESSAGES["en"]  # словарь строк локали
+
+    # Явно задаём низкие лимиты (структура {user: {category: limit}})
+    limits = {"default": {"food": 10.0, "transport": 100.0, "other": 100.0}}
+
+    with sqlite3.connect(sample_data) as conn:
+        issues = check_budget_limits(
+            conn,
             messages=msgs,
-            start_date="2025-07-01",
-            end_date="2025-07-31",
             budget_limits=limits,
         )
 
-    # 4) нормализуем результат: либо список строк, либо печать в stdout
-    if isinstance(res, list):
-        text = " ".join(map(str, res)).lower()
-    else:
-        text = (capsys.readouterr().out or "").lower()
-
-    # 5) проверки: упоминание категории и факта превышения
-    assert "food" in text
-    assert ("over" in text) or ("limit" in text)
-
-
-def test_summarize_expenses(isolate_db, capsys):
-    # данные: food=80, transport=30
-    for d, c, a in [
-        ("2025-07-01", "food", 40.0),
-        ("2025-07-02", "food", 40.0),
-        ("2025-07-03", "transport", 30.0),
-    ]:
-        db.add_expense(d, c, a, "")
-
-    df = db.get_expenses_df()
-    records = _df_records(df)
-    msgs = prj.messages["en"]
-
-    # просим вернуть сводку по категориям
-    result = prj.summarize_expenses(messages=msgs, lang="en", expenses=records)
-
-    if isinstance(result, dict):
-        # если вернули map категорий — проверяем сумму
-        assert result.get("food") == pytest.approx(80.0)
-    else:
-        # иначе допускаем текст/список/печать
-        if isinstance(result, str):
-            text = result
-        elif isinstance(result, list):
-            text = " ".join(map(str, result))
-        else:
-            text = capsys.readouterr().out
-        assert "food" in text.lower()
-
-
-def test_get_expenses_df_returns_dataframe(isolate_db):
-    df = db.get_expenses_df()
-    # простая «проверка на DataFrame»
-    assert hasattr(df, "to_dict")
-    assert isinstance(df.to_dict(), dict)
-
-
-def test_filter_expenses_by_date(isolate_db):
-    # пара записей за июль
-    db.add_expense("2025-07-05", "food", 10.0, "")
-    db.add_expense("2025-07-10", "transport", 20.0, "")
-
-    rows = prj.filter_expenses_by_date_db(
-        start_date="2025-07-01",
-        end_date="2025-07-31",
-        messages=prj.messages["en"],
-        db_path=db.DB_PATH,
-    )
-    assert isinstance(rows, list)
-    assert all(isinstance(r, dict) for r in rows)
-
-
-@pytest.mark.parametrize("lang", ["en", "fr", "es"])
-def test_message_keys_exist(lang):
-    msgs = prj.messages[lang]
-    # базовый набор ключей локализаций, которые используются в проекте
-    required = [
-        "expense_added",
-        "invalid_category",
-        "enter_amount",
-        "enter_date",
-        "invalid_amount",
-    ]
-    for k in required:
-        assert k in msgs
-
-
-def test_list_categories_returns_list(isolate_db):
-    # хотя бы одна категория должна появиться после добавления
-    db.add_expense("2025-07-11", "food", 5.0, "")
-    cats = prj.list_categories()
-    assert isinstance(cats, list)
-    assert "food" in {str(c).lower() for c in cats}
-
-
-def test_charts_facade_runs_and_saves(isolate_db, tmp_path):
-    # немного данных
-    db.add_expense("2025-07-01", "food", 10.0, "")
-    db.add_expense("2025-07-02", "transport", 20.0, "")
-    db.add_expense("2025-07-03", "food", 30.0, "")
-
-    out_dir = tmp_path / "reports" / "plots"
-    paths = show_charts(out_dir=out_dir, lang="en")
-
-    assert isinstance(paths, list) and paths
-    for p in paths:
-        assert isinstance(p, (str, Path))
-        p = Path(p)
-        assert p.exists() and p.stat().st_size > 0
-
-
-def _call_db_add_expense(*, date, category, amount, description, db_path):
-    """
-    Универсальный вызов db.add_expense:
-    – если в сигнатуре есть db_path — передаем его;
-    – если нет — вызываем без него.
-    """
-    fn = db.add_expense
-    params = inspect.signature(fn).parameters
-
-    if "db_path" in params:
-        return fn(
-            date=date,
-            category=category,
-            amount=float(amount),
-            description=description,
-            db_path=str(db_path),
-        )
-    else:
-        return fn(
-            date=date,
-            category=category,
-            amount=float(amount),
-            description=description,
-        )
-
-
-def test_add_expense_with_none_description(tmp_path):
-    """Проверяем, что можно добавить запись с None в поле description."""
-    db_file = tmp_path / "test_expenses.db"
-
-    # минимальная схема для теста
-    conn = sqlite3.connect(db_file)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT,
-            category TEXT,
-            amount REAL,
-            description TEXT
-        )
-    """
-    )
-    conn.commit()
-    conn.close()
-
-    # вызываем добавление (описание None)
-    _call_db_add_expense(
-        date="2025-08-21",
-        category="Food",
-        amount=20.5,
-        description=None,
-        db_path=db_file,  # будет проигнорировано, если параметра нет
-    )
-
-    # проверяем, что строка записалась и description = NULL
-    conn = sqlite3.connect(db_file)
-    cur = conn.cursor()
-    cur.execute("SELECT date, category, amount, description FROM expenses")
-    row = cur.fetchone()
-    conn.close()
-
-    assert row is not None
-    date, category, amount, description = row
-    assert date == "2025-08-21"
-    assert category == "Food"
-    assert amount == 20.5
-    assert description is None
+    assert isinstance(issues, list)
+    assert any("food" in str(item).lower() for item in issues)

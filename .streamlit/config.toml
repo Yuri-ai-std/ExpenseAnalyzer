@@ -1,9 +1,0 @@
-[server]
-fileWatcherType = "watchdog"
-
-# Игнорируем изменения в папке data и reports
-folderWatchBlacklist = [
-  "data",
-  "reports",
-  "reports/plots"
-]

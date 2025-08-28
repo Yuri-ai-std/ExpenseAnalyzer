@@ -5,10 +5,12 @@ import os
 import sqlite3
 from collections import Counter, defaultdict
 from datetime import datetime
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+import streamlit as st
 
 import db  # <-- ДОБАВИЛИ: чтобы можно было писать db.get_expenses_df и т.п.
 from charts import show_charts
@@ -18,10 +20,10 @@ from charts import show_charts
 from db import DB_PATH  # если реально используете константу
 from db import ensure_schema  # инициализация схемы при старте
 from db import get_expenses_df  # универсальная выборка как DataFrame
-from db import list_categories  # список категорий (из БД/предопределённый)
+from db import list_categories as db_list_categories
 from db import add_expense as db_add_expense
 from messages import messages
-from utils import load_monthly_limits, save_monthly_limits
+from utils import load_monthly_limits, save_monthly_limits, mean3, prev_month_key
 
 REPORTS_DIR = Path("reports/plots")
 
@@ -31,6 +33,20 @@ BUDGET_LIMITS_FILE = "budget_limits.json"
 DATABASE_FILE = "expenses.db"
 LANG = "en"
 # en / fr / es - можешь переключать
+
+
+# --- локальный хелпер для актуального пути к БД ---
+def _active_db_path() -> str:
+    """
+    Возвращает активный путь к БД. Сначала пробуем взять из Streamlit session_state,
+    если модуль исполняется вне Streamlit — даём дефолт (чтобы тесты не падали).
+    """
+    try:
+        import streamlit as st  # импорт тут, чтобы избежать жёсткой зависимости при тестах
+
+        return st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+    except Exception:
+        return "data/default_expenses.db"
 
 
 def calculate_total_expenses(expenses):
@@ -357,7 +373,8 @@ def _get_current_expenses(
     Возвращаем текущие расходы ТОЛЬКО из SQLite:
     берём df через get_expenses_df и переводим в список словарей.
     """
-    df = get_expenses_df(start_date=start_date, end_date=end_date, category=category)
+    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+    df = get_expenses_df(db_path=db_path)
     if df is None or df.empty:
         return []
     # гарантируем одинаковые ключи
@@ -435,7 +452,7 @@ def _set_language():
         print("Unsupported language. Keeping current.")
 
 
-def list_categories() -> list[str]:
+def fallback_categories() -> list[str]:
     with sqlite3.connect(DB_PATH) as conn:
         cur = conn.cursor()
         cur.execute("SELECT DISTINCT category FROM expenses ORDER BY category")
@@ -486,6 +503,68 @@ def get_budget_limits() -> dict:
     return data if isinstance(data, dict) else {}
 
 
+def _as_float(x: Any) -> float:
+    """Надёжно приводит что-угодно к float; NaN/None/странные типы -> 0.0."""
+    try:
+        # pandas/numpy NaN
+        if pd.isna(x):  # type: ignore[arg-type]
+            return 0.0
+    except Exception:
+        pass
+    try:
+        return float(x)  # np.float64, Decimal, str с числом и т.п.
+    except Exception:
+        return 0.0
+
+
+def suggest_limits_for_month(user: str, month_key: str) -> Dict[str, float]:
+    """
+    Возвращает словарь {category: suggested_limit} на основе истории:
+    средние траты за последние 3 месяца по категориям.
+    Если истории мало — пробуем прошлый месяц.
+    """
+    # берём последние 4 месяца (чтобы точно покрыть 3 полных)
+    y, m = map(int, month_key.split("-"))
+    months = []
+    cur = month_key
+    for _ in range(4):
+        months.append(cur)
+        cur = prev_month_key(cur)
+    # загружаем расходы за эти месяцы
+    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+    df = get_expenses_df(db_path=db_path)
+    if df is None or df.empty:
+        return {}
+    df["ym"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m")
+    pool = df[df["ym"].isin(months)]
+    if pool.empty:
+        return {}
+
+    # свод по категориям по месяцам
+    piv = pool.pivot_table(
+        index="ym", columns="category", values="amount", aggfunc="sum"
+    ).sort_index()
+
+    # --- среднее по последним трём месяцам
+    sugg: Dict[str, float] = {}
+    for cat in piv.columns:
+        col = piv[cat].tail(3)
+        avg3 = col.mean(skipna=True)
+        sugg[cat] = _as_float(avg3)
+
+    # --- fallback по прошлому месяцу
+    if all(v == 0.0 for v in sugg.values()):
+        pm = prev_month_key(month_key)
+        if pm in piv.index:
+            for cat in piv.columns:
+                v = piv.loc[pm, cat]
+                sugg[cat] = _as_float(v)
+
+    # --- финальный округ
+    sugg = {k: round(_as_float(v), 2) for k, v in sugg.items()}
+    return sugg
+
+
 def categories() -> list[str]:
     # можно читать из budget_limits.json, а если файла нет — дефолты
     import json
@@ -515,7 +594,11 @@ def add_expense_adapter() -> None:
     потом запись в БД через db.add_expense().
     """
     # 1) выбор категории (пример — подставьте ваш источник)
-    categories = list_categories() if "list_categories" in globals() else []
+    categories = (
+        db_list_categories()
+        if "db_list_categories" in globals()
+        else fallback_categories()
+    )
     if not categories:
         print("No categories defined.")
         return

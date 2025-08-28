@@ -65,6 +65,8 @@ messages = {
         "download_csv": "Download CSV",
         "upload_csv": "Upload limits CSV",
         "csv_import_failed": "CSV import failed",
+        "suggestions": "Suggestions (last 3 months)",
+        "autofill_info": "Auto-filled this month's limits from history.",
         # --- Settings (limits / io / audit) ---
         "download_json": "Download JSON",
         "save_to_file": "Save to file",
@@ -137,6 +139,8 @@ messages = {
         "download_csv": "Télécharger CSV",
         "upload_csv": "Importer des plafonds (CSV)",
         "csv_import_failed": "Échec de l'import CSV",
+        "suggestions": "Suggestions (3 derniers mois)",
+        "autofill_info": "Plafonds de ce mois auto-remplis à partir de l'historique.",
         # --- Settings (limits / io / audit) ---
         "download_json": "Télécharger JSON",
         "save_to_file": "Enregistrer dans un fichier",
@@ -209,6 +213,8 @@ messages = {
         "download_csv": "Descargar CSV",
         "upload_csv": "Importar límites (CSV)",
         "csv_import_failed": "Error al importar CSV",
+        "suggestions": "Sugerencias (últimos 3 meses)",
+        "autofill_info": "Límites de este mes auto-rellenados desde el historial.",
         # --- Settings (limits / io / audit) ---
         "download_json": "Descargar JSON",
         "save_to_file": "Guardar en archivo",
