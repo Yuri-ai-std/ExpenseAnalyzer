@@ -25,6 +25,8 @@ import pandas as pd
 
 # --- project db helpers ---
 import db  # используем только db.get_expenses_df(...)
+from db import get_expenses_df
+import streamlit as st
 
 # ---------------------------
 # Validation & helpers
@@ -162,9 +164,13 @@ def show_charts(
     lang: str = "en",
     do_monthly: bool = True,
     do_category: bool = True,
+    db_path: Optional[str] = None,  # <— добавили
 ) -> list[Path]:
-    df = db.get_expenses_df(
-        db_path=getattr(db, "DB_PATH", "expenses.db"),
+    if db_path is None:
+        db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+
+    df = get_expenses_df(
+        db_path=db_path,
         start_date=start,
         end_date=end,
         category=category,

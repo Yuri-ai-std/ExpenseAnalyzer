@@ -18,3 +18,14 @@ __pycache__/
 *.db-*
 *.bak
 reports/plots/
+
+# Игнорировать базы/бэкапы в корне
+/*.db
+/*.db.bak
+/*.json.bak
+
+# Разрешаем данные в data/
+!data/
+!data/*.db
+!data/*.json
+!data/*.bak
