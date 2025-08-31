@@ -71,6 +71,9 @@ messages = {
         "download_json": "Download JSON",
         "save_to_file": "Save to file",
         "clear_audit": "Clear audit",
+        "import_success": "Limits imported from CSV",
+        "change_log": "Change log (session)",
+        "import_export": "Import / Export",
         # --- Exit ---
         "saving_data": "Saving data...",
         "goodbye": "Goodbye!",
@@ -145,6 +148,9 @@ messages = {
         "download_json": "Télécharger JSON",
         "save_to_file": "Enregistrer dans un fichier",
         "clear_audit": "Effacer l'audit",
+        "import_success": "Plafonds importés depuis le CSV",
+        "change_log": "Journal des modifications (session)",
+        "import_export": "Importer / Exporter",
         # --- Exit ---
         "saving_data": "Sauvegarde des données...",
         "goodbye": "Au revoir !",
@@ -219,6 +225,9 @@ messages = {
         "download_json": "Descargar JSON",
         "save_to_file": "Guardar en archivo",
         "clear_audit": "Borrar auditoría",
+        "import_success": "Límites importados desde CSV",
+        "change_log": "Registro de cambios (sesión)",
+        "import_export": "Importar / Exportar",
         # --- Exit ---
         "saving_data": "Guardando datos...",
         "goodbye": "¡Adiós!",

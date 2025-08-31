@@ -1,14 +1,6 @@
 # charts.py — чистая версия без db.totals_by_*
 from __future__ import annotations
 
-# --- i18n ---
-from messages import messages as M
-
-
-def t(key: str, lang: str = "en") -> str:
-    return M.get(lang, M.get("en", {})).get(key, key)
-
-
 # --- stdlib ---
 import argparse
 from datetime import datetime
@@ -17,21 +9,27 @@ from typing import Optional
 
 # --- third-party ---
 import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import pandas as pd
+import streamlit as st
 
 # --- project db helpers ---
-import db  # используем только db.get_expenses_df(...)
 from db import get_expenses_df
-import streamlit as st
+
+# --- i18n ---
+from messages import messages as M
 
 # ---------------------------
 # Validation & helpers
 # ---------------------------
 REQUIRED_COLUMNS = {"date", "category", "amount"}
+
+matplotlib.use("Agg")
+
+
+def t(key: str, lang: str = "en") -> str:
+    return M.get(lang, M.get("en", {})).get(key, key)
 
 
 def _require_dataframe(df: pd.DataFrame) -> None:

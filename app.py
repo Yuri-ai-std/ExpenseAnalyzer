@@ -1,38 +1,61 @@
-import csv
 import json
 import re
 import sqlite3
-import io
 from datetime import date
 from datetime import date as _date
-from datetime import datetime, timedelta
-from io import BytesIO, StringIO
+from datetime import datetime
+from io import BytesIO
 from pathlib import Path
+from typing import Dict
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from db import add_expense, get_expenses_df
-from db import list_categories
-from db import list_categories as _list_categories
+from db import add_expense, get_expenses_df, list_categories
+
+# CSV/аудит для лимитов
+from limits_tools import (
+    append_audit_row,
+    audit_to_csv_bytes,
+    audit_to_json_bytes,
+    csv_bytes_to_limits,
+    limits_to_csv_bytes,
+    get_audit,
+)
+
 from messages import messages
-from limits_tools import check_budget_limits, suggest_limits_for_month
 from utils import (
     DATA_DIR,
-    list_users,
     create_user,
-    delete_user,
-    archive_user,
-    user_files,
-    slugify_user,
     db_path_for,
+    delete_user,
     limits_path_for,
+    list_users,
     load_monthly_limits,
     month_key,
-    prev_month_key,
     save_monthly_limits,
+    user_files,
 )
+
+# --- aliases for tests (test_limits_io.py expects underscored names)
+_limits_to_csv_bytes = limits_to_csv_bytes
+
+# --- Проверка поддержки duration в st.toast ---
+try:
+    if "duration" not in st.toast.__code__.co_varnames:
+        st.warning(
+            "⚠️ Ваша версия Streamlit не поддерживает параметр `duration`.\n"
+            "Обновитесь командой:\n"
+            "`pip install --upgrade streamlit-nightly`"
+        )
+except AttributeError:
+    st.warning(
+        "⚠️ Ваша версия Streamlit устарела.\n"
+        "Обновитесь командой:\n"
+        "`pip install --upgrade streamlit-nightly`"
+    )
+
 
 st.session_state.setdefault("current_user", "default")
 current_user = st.session_state["current_user"]
@@ -46,6 +69,20 @@ st.session_state["ACTIVE_LIMITS_PATH"] = str(ACTIVE_LIMITS_PATH)
 
 
 # ---- Active user & paths (single source of truth) ----
+
+
+def _parse_limits_csv(data):
+    """Парсинг CSV → dict; принимает bytes, str или io.BytesIO."""
+    # io.BytesIO или любой объект-файлоподобный
+    if hasattr(data, "read"):
+        data = data.read()
+    # строку превращаем в bytes
+    elif isinstance(data, str):
+        data = data.encode("utf-8")
+    # далее точно bytes
+    return csv_bytes_to_limits(data)
+
+
 def get_active_user() -> str:
     """Имя активного пользователя из session_state (по умолчанию 'default')."""
     return st.session_state.setdefault("current_user", "default")
@@ -123,13 +160,11 @@ def _normalize_limits_json(obj: dict) -> dict[str, dict[str, float]]:
     if not isinstance(obj, dict):
         raise ValueError("Root must be an object")
     out: dict[str, dict[str, float]] = {}
-    for month_key, limits in obj.items():
-        if not isinstance(month_key, str) or len(month_key) != 7 or month_key[4] != "-":
-            raise ValueError(f"Invalid month key: {month_key!r}")
+    for mk, limits in obj.items():
+        if not isinstance(mk, str) or len(mk) != 7 or mk[4] != "-":
+            raise ValueError(f"Invalid month key: {mk!r}")
         if not isinstance(limits, dict):
-            raise ValueError(
-                f"Month {month_key} must map to an object of category->limit"
-            )
+            raise ValueError(f"Month {mk} must map to an object of category->limit")
         inner: dict[str, float] = {}
         for cat, val in limits.items():
             if not isinstance(cat, str) or not cat.strip():
@@ -140,7 +175,7 @@ def _normalize_limits_json(obj: dict) -> dict[str, dict[str, float]]:
                 continue
             if f >= 0:
                 inner[cat.strip()] = f
-        out[month_key] = inner
+        out[mk] = inner
     return out
 
 
@@ -151,134 +186,34 @@ def _month_key(date_value):
     return date_value.strftime("%Y-%m")
 
 
-AUDIT_FILE = Path("tools/limits_audit.csv")  # можно сменить путь при желании
-AUDIT_DIR = Path("data")
-AUDIT_DIR.mkdir(exist_ok=True)
-AUDIT_LOG_FILE = (
-    AUDIT_DIR / "audit.jsonl"
-)  # долговременное хранение (по записи в строке)
-
-
-def _limits_to_csv_bytes(limits: dict[str, float]) -> bytes:
-    """Словарь лимитов -> CSV (bytes)."""
-    df = pd.DataFrame(
-        [(k, float(v)) for k, v in (limits or {}).items()],
-        columns=["category", "limit"],
-    )
-    return df.to_csv(index=False).encode("utf-8")
-
-
-def _parse_limits_csv(file) -> dict[str, float]:
-    """CSV -> словарь лимитов {category: limit}."""
-    df = pd.read_csv(file)
+def _collect_limits_for_month(mk: str, categories: list[str]) -> dict[str, float]:
+    """Собирает текущие значения из полей редактирования в st.session_state."""
     out: dict[str, float] = {}
-    for _, row in df.iterrows():
-        if pd.isna(row.get("category")):
-            continue
-        cat = str(row["category"]).strip()
+    for cat in categories:
+        raw = st.session_state.get(f"limit_{mk}_{cat}")
         try:
-            out[cat] = float(row["limit"])
+            out[cat] = float(raw) if raw is not None else 0.0
         except Exception:
-            continue
+            out[cat] = 0.0
     return out
 
 
-def _append_audit_row(kind: str, month_key: str, before: dict, after: dict) -> None:
-    """Мини-лог изменений лимитов в session_state."""
-    log = st.session_state.setdefault("audit", [])
-    log.append(
-        {
-            "ts": datetime.now().isoformat(timespec="seconds"),
-            "kind": kind,
-            "month": month_key,
-            "before": before,
-            "after": after,
-        }
-    )
-
-
-AUDIT_DIR = Path("data")
-AUDIT_DIR.mkdir(exist_ok=True)
-AUDIT_LOG_FILE = (
-    AUDIT_DIR / "audit.jsonl"
-)  # долговременное хранение (по записи в строке)
-
-
-def _get_audit() -> list[dict]:
-    """Вернёт список записей аудита из session_state."""
-    return st.session_state.get("audit", [])
-
-
-def _audit_to_json_bytes(log: list[dict]) -> bytes:
-    """Аудит -> JSON bytes (для download_button)."""
-    return json.dumps(log, ensure_ascii=False, indent=2).encode("utf-8")
-
-
-def _csv_bytes_to_limits(data: bytes) -> dict[str, float]:
-    """CSV -> словарь лимитов {category: limit}"""
-    buf = io.BytesIO(data)
-    df = pd.read_csv(buf)
-    out: dict[str, float] = {}
-    for _, row in df.iterrows():
-        cat = str(row.get("category", "")).strip()
-        try:
-            out[cat] = float(row.get("limit", 0.0))
-        except Exception:
-            continue
+def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
+    """
+    Считывает все st.session_state[prefix + <category>] и возвращает словарь {category: float}.
+    Никаких внешних зависимостей — работает по текущей форме.
+    """
+    out: Dict[str, float] = {}
+    plen = len(prefix)
+    for k, v in st.session_state.items():
+        if isinstance(k, str) and k.startswith(prefix):
+            cat = k[plen:]
+            try:
+                out[cat] = float(v) if v not in ("", None) else 0.0
+            except Exception:
+                # игнорируем нечисловые/пустые значения поля
+                pass
     return out
-
-
-def _audit_to_csv_bytes(log: list[dict]) -> bytes:
-    """
-    Аудит -> CSV bytes. Шапка формируется динамически по всем
-    встреченным в before/after категориям.
-    """
-    # 1) собрать все категории, встреченные в before/after
-    cats: list[str] = []
-    for row in log:
-        b = row.get("before", {}) or {}
-        a = row.get("after", {}) or {}
-        cats.extend(b.keys())
-        cats.extend(a.keys())
-
-    # стабильно отсортируем имена колонок
-    cats = sorted(set(cats))
-
-    # 2) сформировать шапку CSV
-    fieldnames = (
-        ["ts", "kind", "month"]
-        + [f"before_{c}" for c in cats]
-        + [f"after_{c}" for c in cats]
-    )
-
-    # 3) запись CSV в строковый буфер
-    buf = StringIO()
-    w = csv.DictWriter(buf, fieldnames=fieldnames)
-    w.writeheader()
-
-    for row in log:
-        b = row.get("before", {}) or {}
-        a = row.get("after", {}) or {}
-        out = {
-            "ts": row.get("ts"),
-            "kind": row.get("kind"),
-            "month": row.get("month"),
-        }
-        # заполняем «до»
-        for c in cats:
-            out[f"before_{c}"] = b.get(c, 0)
-        # и «после»
-        for c in cats:
-            out[f"after_{c}"] = a.get(c, 0)
-        w.writerow(out)
-
-    return buf.getvalue().encode("utf-8")
-
-
-def _persist_audit_append(entry: dict) -> None:
-    """Опционально: писать каждую запись аудита на диск (JSONL)."""
-    with AUDIT_LOG_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
@@ -286,11 +221,13 @@ print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m
 
 
 # ===== Вспомогательные функции =====
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=10, show_spinner=False)
 def load_df(start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Загружает операции из БД активного пользователя как DataFrame."""
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path)
+    df = get_expenses_df(
+        db_path=db_path, start_date=start, end_date=end
+    )  # ✅ фильтр по датам
 
     expected = ["date", "category", "amount", "description"]
     for col in expected:
@@ -410,10 +347,21 @@ if choice == "Dashboard":
     # ----- Топ последних операций -----
     st.subheader("Last operations")
     show_cols = ["date", "category", "amount", "description"]
+
+    # проверяем, есть ли колонка id для надёжной сортировки
+    sort_cols = ["date"] + (["id"] if "id" in df.columns else [])
+
+    last5 = (
+        df.sort_values(sort_cols, ascending=[False] * len(sort_cols))
+        .loc[:, show_cols]
+        .head(5)
+    )
+
     st.dataframe(
-        df.sort_values("date", ascending=False)[show_cols].head(5),
+        last5,
         use_container_width=True,
         hide_index=True,
+        height=220,  # немного увеличим высоту для наглядности
     )
 
     # ----- Диаграмма по категориям -----
@@ -429,30 +377,77 @@ if choice == "Dashboard":
 
 elif choice == "Add Expense":
     st.title(msgs.get("add_expense", "Add Expense"))
+    # --- persistent success banner after rerun ---
+    if st.session_state.pop("expense_added_banner", False):
+        st.markdown(
+            """
+            <div style="
+                background-color: #d4edda;
+                color: #155724;
+                padding: 10px 16px;
+                border-radius: 8px;
+                border: 1px solid #c3e6cb;
+                font-size: 16px;
+                margin: 10px 0;
+                display: flex;
+                align-items: center;
+            ">
+                ✅ <span style="margin-left: 10px;">Expense added successfully!</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-    # Получаем список категорий из БД
+    # 1) активная БД (мы её уже кладём в session_state)
+    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+
+    # 2) список категорий из активной БД (фоллбэк на прямой SQL)
     try:
-        conn = sqlite3.connect("expenses.db")
-        cats = [
-            row[0]
-            for row in conn.execute("SELECT DISTINCT category FROM expenses").fetchall()
-        ]
-        conn.close()
+        # если у вас есть хелпер list_categories(db_path=...), раскомментируйте:
+        # from db import list_categories as _list_categories
+        # cats = _list_categories(db_path=db_path)
+
+        with sqlite3.connect(db_path) as _conn:
+            rows = _conn.execute(
+                "SELECT DISTINCT category FROM expenses ORDER BY category"
+            ).fetchall()
+        cats = [r[0] for r in rows if r and r[0]]
     except Exception:
-        cats = []  # fallback, если таблица пуста
+        cats = []
 
     with st.form("add_expense_form", clear_on_submit=True):
+        # дата
         d = st.date_input(msgs.get("date", "Date"))
         date_err = st.empty()
 
-        # Меняем текстовое поле на selectbox с возможностью ввода
-        category = st.selectbox(
-            msgs.get("category", "Category"),
-            options=cats if cats else ["(Enter new category)"],
-            index=0 if cats else None,
-            placeholder="Choose or type a category",
-        )
-        category_err = st.empty()
+        # режим ввода категории: выбрать/новая
+        col_left, col_right = st.columns([1, 1])
+        with col_left:
+            mode = st.radio(
+                msgs.get("category", "Category"),
+                options=["choose", "new"],
+                index=0 if cats else 1,
+                horizontal=True,
+                captions=[
+                    msgs.get("choose_existing", "Choose existing"),
+                    msgs.get("enter_new", "Enter new"),
+                ],
+            )
+
+        cat_val = None
+        cat_err = st.empty()
+        if mode == "choose":
+            cat_val = st.selectbox(
+                msgs.get("choose_category", "Choose category"),
+                options=cats,
+                index=0 if cats else None,
+                placeholder=msgs.get("placeholder_category", "No categories yet"),
+            )
+        else:
+            cat_val = st.text_input(
+                msgs.get("new_category", "New category"),
+                placeholder=msgs.get("placeholder_new_category", "Type category name"),
+            )
 
         amount = st.number_input(
             msgs.get("amount", "Amount"),
@@ -468,24 +463,22 @@ elif choice == "Add Expense":
         if submit:
             has_error = False
 
-            # Дата
+            # валидации
             if not d:
                 date_err.error(msgs.get("error_date", "Please select a date."))
                 has_error = True
             else:
                 date_err.empty()
 
-            # Категория
-            cat_norm = (category or "").strip()
-            if not cat_norm or cat_norm == "(Enter new category)":
-                category_err.error(
-                    msgs.get("error_category", "Please enter a valid category.")
+            category_norm = (cat_val or "").strip()
+            if not category_norm:
+                cat_err.error(
+                    msgs.get("error_category", "Please enter / choose a category.")
                 )
                 has_error = True
             else:
-                category_err.empty()
+                cat_err.empty()
 
-            # Сумма
             amt = float(amount)
             if amt <= 0:
                 amount_err.error(
@@ -495,22 +488,40 @@ elif choice == "Add Expense":
             else:
                 amount_err.empty()
 
-            # Сохранение
+            # сохранение
             if not has_error:
-                note_norm = (note or "").strip()
                 try:
+                    # если ваша add_expense поддерживает явный путь — можно так:
+                    # add_expense(
+                    #     date=str(d),
+                    #     category=category_norm,
+                    #     amount=amt,
+                    #     description=(note or "").strip(),
+                    #     db_path=db_path,
+                    # )
+
+                    # у вас add_expense уже резолвит путь через session_state → достаточно так:
                     add_expense(
                         date=str(d),
-                        category=cat_norm,
+                        category=category_norm,
                         amount=amt,
-                        description=note_norm,
+                        description=(note or "").strip(),
                     )
+
+                    # уведомления + перерисовка страницы
                     st.success(msgs.get("expense_added", "Expense added successfully!"))
+
+                    # тост с увеличенной продолжительностью (7 секунд)
                     st.toast(
                         msgs.get("expense_added", "Expense added successfully!"),
                         icon="✅",
+                        duration=7,
                     )
+
+                    # сброс кэша и мягкая перерисовка страницы
+                    st.cache_data.clear()
                     st.rerun()
+
                 except Exception as ex:
                     st.error(msgs.get("save_error", "Could not save expense."))
                     st.exception(ex)
@@ -659,6 +670,7 @@ elif choice == "Browse & Filter":
     )
 
     export_df_to_excel_button(f_disp, filename="expenses_filtered.xlsx")
+
 
 elif choice == "Charts":
     st.title(msgs.get("charts", "Charts"))
@@ -962,195 +974,196 @@ st.caption(
 
 st.divider()
 
-# --- Month & Limits editor ---------------------------------------------------
-# Требуются:
-# from datetime import date
-# from utils import month_key, load_monthly_limits, save_monthly_limits
-# current_user: str уже задан выше в блоке Settings (через selectbox Users)
+# --- Monthly limits ----------------------------------------------------------
 
-msgs = messages[lang]  # как и в остальном приложении
 
-# 1) Загрузка всех лимитов текущего пользователя
-all_limits = load_monthly_limits(user=current_user) or {}
+def _active_paths() -> tuple[str, Path]:
+    """Берём активные пути из твоего get_active_paths();
+    возвращаем: (db_path как str, limits_path как Path)."""
+    db_p_obj, limits_p_obj = get_active_paths()
+    db_p_str = str(db_p_obj)
+    limits_p = limits_p_obj if isinstance(limits_p_obj, Path) else Path(limits_p_obj)
+    return db_p_str, limits_p
 
-# 2) Выбор месяца + ключ месяца
-col_m1, col_m2 = st.columns([1, 2])
-with col_m1:
-    month = st.date_input(
-        "Month",
-        value=date.today().replace(day=1),
-        format="YYYY/MM/DD",
-    )
-mk = month_key(month)
 
-# если для месяца нет лимитов — сгенерируем подсказку и подставим
-if mk not in all_limits or not all_limits.get(mk):
-    suggested = suggest_limits_for_month(current_user, mk) or {}
-    if not suggested:
+def _categories_for_editor(db_path: str) -> list[str]:
+    """Надёжно получаем список категорий из БД.
+    Всегда возвращаем список (даже при ошибках)."""
+    try:
+        cats = list_categories(db_path=db_path) or []
+    except Exception:
+        cats = []
+    # базовая подстраховка
+    base = {"food", "transport", "groceries", "utilities", "entertainment", "other"}
+    return sorted(set(cats) | base)
 
-        # fallback: взять прошлый месяц, если он есть
-        prev_mk = prev_month_key(mk)
-        suggested = dict(all_limits.get(prev_mk, {}))
-    all_limits[mk] = {k: float(v) for k, v in suggested.items()}
-    save_monthly_limits(all_limits, user=current_user)
-    st.info("Auto-filled this month's limits from history.")
 
-# 3) Список категорий (без падения, если что-то не так)
-try:
-    categories = list_categories() or []
-except Exception:
-    categories = []
+def _mk(d: date) -> str:
+    """Ключ месяца вида 'YYYY-MM' (используем твою month_key)."""
+    return month_key(d)
 
-# 4) Текущие значения для выбранного месяца
-current_limits = {k: float(v) for k, v in (all_limits.get(mk, {}) or {}).items()}
-# Нормализуем под список категорий: если категория отсутствует — показываем 0.0
-normalized = {cat: float(current_limits.get(cat, 0.0) or 0.0) for cat in categories}
+
+def _load_limits(mk: str, path: Path) -> dict[str, float]:
+    """Читаем лимиты из JSON-файла; на ошибки реагируем мягко."""
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        raw = data.get(mk, {}) or {}
+        return {k: float(v) for k, v in raw.items()}
+    except Exception:
+        return {}
+
+
+def _save_limits(mk: str, values: dict[str, float], path: Path) -> None:
+    """Сохраняем лимиты для выбранного месяца в JSON-файл."""
+    data = {}
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            data = {}
+    data[mk] = values
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 st.subheader("Monthly limits")
+
+# показываем активные файлы (для уверенности)
+db_path_str, limits_path = _active_paths()
+st.caption(f"DB: {db_path_str} — Limits: {limits_path.name}")
+
+# 1) Выбор месяца (уникальный key обязателен!)
+month = st.date_input(
+    "Month",
+    value=date.today().replace(day=1),
+    format="YYYY/MM/DD",
+    key="limits_month",
+)
+mk = _mk(month)
+
+# 2) Загружаем лимиты и категории
+cats = _categories_for_editor(db_path_str)
+limits_now = _load_limits(mk, limits_path)
+
+# 3) Редактор лимитов (по всем категориям)
+st.write(f"User: {get_active_user()} • Month: {mk}")
+
+values: dict[str, float] = {}
+for cat in cats:
+    values[cat] = st.number_input(
+        cat,
+        min_value=0.0,
+        step=10.0,
+        value=float(limits_now.get(cat, 0.0)),
+        key=f"limit_{mk}_{cat}",  # уникальные ключи на месяц+категорию
+    )
+
+# 4) Кнопки управления (Save / Clear) в две колонки
 col1, col2 = st.columns(2)
-
-# 5) Форма редактирования значений
 with col1:
-    st.caption(f"User: {current_user}  •  Month: {mk}")
-    edited: dict[str, float] = {}
-    for cat in categories:
-        edited[cat] = st.number_input(
-            label=cat,
-            value=float(normalized.get(cat, 0.0)),
-            step=10.0,
-            format="%.2f",
-            key=f"limit_{mk}_{cat}_{current_user}",
-        )
-
-    # Сохранение
-    if st.button(msgs.get("save", "Save"), type="primary", use_container_width=True):
-        before = all_limits.get(mk, {})
-        after = {k: float(v) for k, v in edited.items()}
-        all_limits[mk] = after
-        save_monthly_limits(all_limits, user=current_user)
-
-        # Аудит
-        st.session_state.setdefault("audit", [])
-        st.session_state["audit"].append(
-            {
-                "kind": "save_form",
-                "user": current_user,
-                "month": mk,
-                "before": before,
-                "after": after,
-            }
-        )
-        st.success(msgs.get("saved", "Saved!"))
+    if st.button("Save", type="primary", key=f"save_limits_{mk}"):
+        _save_limits(mk, values, limits_path)
+        st.toast("Limits saved", icon="💾", duration=5)
+        st.cache_data.clear()
         st.rerun()
 
-    # Очистка месяца
-    if st.button("Clear month limits", use_container_width=True):
-        before = all_limits.get(mk, {})
-        if mk in all_limits:
-            del all_limits[mk]
-            save_monthly_limits(all_limits, user=current_user)
-
-        st.session_state.setdefault("audit", [])
-        st.session_state["audit"].append(
-            {
-                "kind": "clear_month",
-                "user": current_user,
-                "month": mk,
-                "before": before,
-                "after": {},
-            }
-        )
-        st.success(msgs.get("cleared", "Cleared!"))
-        st.rerun()
-
-# 6) Экспорт/импорт CSV + лог (справа)
 with col2:
-    st.caption("Import / Export")
-    # Экспорт CSV текущих значений месяца
-    new_limits = {k: float(v) for k, v in edited.items()} if edited else normalized
-    csv_bytes = _limits_to_csv_bytes(new_limits)
+    if st.button("Clear month limits", key=f"clear_limits_{mk}"):
+        _save_limits(mk, {}, limits_path)
+        st.toast("Limits cleared", icon="🧹", duration=5)
+        st.cache_data.clear()
+        st.rerun()
 
+# --- Import / Export CSV ------------------------------------------------------
+mk = st.session_state.get("current_limits_month", month_key(date.today()))
+current_user = st.session_state.get("current_user", "default")
+
+# соберём текущие значения из формы (микро-хелпер вы уже добавили ранее)
+current_limits = _collect_limits_from_form(prefix=f"limit_{mk}_")
+
+exp_col1, exp_col2 = st.columns(2)
+
+# --- Export CSV
+with exp_col1:
+    csv_bytes = limits_to_csv_bytes(current_limits)
     st.download_button(
         label=msgs.get("download_csv", "Download CSV"),
         data=csv_bytes,
         file_name=f"{current_user}_{mk}_limits.csv",
         mime="text/csv",
-        use_container_width=True,
+        key=f"dl_limits_csv_{current_user}_{mk}",
+        help=msgs.get("download_csv", "Download CSV"),
     )
 
-    # Импорт CSV
-    uploaded = st.file_uploader("Upload CSV", type=["csv"], accept_multiple_files=False)
-    if uploaded is not None:
+# --- Import CSV
+with exp_col2:
+    up = st.file_uploader(
+        msgs.get("upload_csv", "Upload CSV"),
+        type=["csv"],
+        key=f"ul_limits_csv_{current_user}_{mk}",
+        help=msgs.get("upload_csv", "Upload CSV"),
+    )
+
+    if up is not None:
         try:
-            imported = _csv_bytes_to_limits(uploaded.read())
-            before = all_limits.get(mk, {})
-            all_limits[mk] = imported
-            save_monthly_limits(all_limits, user=current_user)
+            uploaded_bytes = up.read()
+            imported_limits = csv_bytes_to_limits(uploaded_bytes)
 
-            st.session_state.setdefault("audit", [])
-            st.session_state["audit"].append(
-                {
-                    "kind": "import_csv",
-                    "user": current_user,
-                    "month": mk,
-                    "before": before,
-                    "after": imported,
-                }
-            )
+            # проставляем в поля редактора
+            for cat, val in imported_limits.items():
+                st.session_state[f"limit_{mk}_{cat}"] = float(val)
+
+            # ЛОГ ИЗМЕНЕНИЙ: сравниваем «что было в форме» vs «что импортировали»
+            append_audit_row(old=current_limits, new=imported_limits)
+
+            # уведомление + мягкий rerun
             st.success(msgs.get("saved", "Saved!"))
-            st.rerun()
-        except Exception as e:
-            st.error(f"Import error: {e!r}")
-
-    st.divider()
-    st.caption("Change log (session)")
-
-    # Кнопки логов
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        if st.button(
-            msgs.get("download_json", "Download JSON"), use_container_width=True
-        ):
-            st.download_button(
-                label=msgs.get("download_json", "Download JSON"),
-                data=_audit_to_json_bytes(_get_audit()),
-                file_name="limits_audit.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-    with c2:
-        if st.button(
-            msgs.get("download_csv", "Download CSV"), use_container_width=True
-        ):
-            st.download_button(
-                label=msgs.get("download_csv", "Download CSV"),
-                data=_audit_to_csv_bytes(_get_audit()),
-                file_name="limits_audit.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-    with c3:
-        if st.button(
-            msgs.get("save_to_file", "Save to file"), use_container_width=True
-        ):
-            tools_dir = Path("tools")
-            tools_dir.mkdir(exist_ok=True)
-            with open(tools_dir / "limits_audit.csv", "a", encoding="utf-8") as f:
-                f.write(
-                    _audit_to_json_bytes(_get_audit()).decode("utf-8", errors="ignore")
-                    + "\n"
-                )
-            st.success(msgs.get("saved", "Saved!"))
-            st.rerun()
-    with c4:
-        if st.button(msgs.get("clear_audit", "Clear audit"), use_container_width=True):
-            st.session_state["audit"] = []
-            st.success(msgs.get("cleared", "Cleared!"))
+            st.toast(msgs.get("saved", "Saved!"), icon="✅")
+            st.cache_data.clear()
             st.rerun()
 
+        except Exception:
+            st.error(msgs.get("csv_import_failed", "CSV import failed"))
+
+# ---- Change log (session) ----------------------------------------------------
+st.markdown(f"#### {msgs.get('change_log', 'Change log (session)')}")
+
+log_col1, log_col2, log_col3, log_col4 = st.columns(4)
+
+audit_data = get_audit()  # список записей аудита за сессию
+
+with log_col1:
+    st.download_button(
+        label=msgs.get("download_json", "Download JSON"),
+        data=audit_to_json_bytes(audit_data),
+        file_name=f"audit_{current_user}_{mk}.json",
+        mime="application/json",
+        key=f"dl_audit_json_{current_user}_{mk}",
+    )
+
+with log_col2:
+    st.download_button(
+        label=msgs.get("download_csv", "Download CSV"),
+        data=audit_to_csv_bytes(audit_data),
+        file_name=f"audit_{current_user}_{mk}.csv",
+        mime="text/csv",
+        key=f"dl_audit_csv_{current_user}_{mk}",
+    )
+
+with log_col4:
+    if st.button(
+        msgs.get("clear_audit", "Clear audit"),
+        key=f"btn_clear_audit_{current_user}_{mk}",
+    ):
+        st.session_state.setdefault("__limits_audit__", [])
+        st.session_state["__limits_audit__"].clear()
+        st.success(msgs.get("cleared", "Cleared!"))
+
+# 6) Подсказки (3 последних месяца)
 with st.expander("Suggestions (last 3 months)"):
-    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df_hist = get_expenses_df(db_path=db_path)
+    df_hist = get_expenses_df(db_path=db_path_str)
     recs = []
     if df_hist is not None and not df_hist.empty:
         df_hist["ym"] = pd.to_datetime(df_hist["date"]).dt.strftime("%Y-%m")
@@ -1159,18 +1172,22 @@ with st.expander("Suggestions (last 3 months)"):
         piv = recent.pivot_table(
             index="ym", columns="category", values="amount", aggfunc="sum"
         ).sort_index()
-        # среднее за 3 мес. и текущий лимит:
-        cur_limits = all_limits.get(mk, {})
+        user = st.session_state.get("current_user", "default")
+        limits_map = load_monthly_limits(
+            limits_path_for(user)
+        )  # dict: { "YYYY-MM": {cat: val, ...}, ... }
+        cur_limits = limits_map.get(mk, {})
         for cat in sorted(set(list(piv.columns) + list(cur_limits.keys()))):
             avg3 = float(piv.get(cat, pd.Series(dtype=float)).tail(3).mean() or 0.0)
             lim = float(cur_limits.get(cat, 0.0))
             if avg3 == 0 and lim == 0:
                 continue
-            if avg3 > lim * 1.1:  # выходим за лимит более чем на 10%
+            if avg3 > lim * 1.1:
                 recs.append(
-                    f"↑ {cat}: avg last 3 mo {avg3:.2f} > limit {lim:.2f} → consider +{avg3-lim:.2f}"
+                    f"↑ {cat}: avg last 3 mo {avg3:.2f} > limit {lim:.2f} → "
+                    f"consider +{avg3-lim:.2f}"
                 )
-            elif lim > 0 and lim > avg3 * 1.25:  # лимит сильно выше привычных трат
+            elif lim > 0 and lim > avg3 * 1.25:
                 recs.append(
                     f"↓ {cat}: limit {lim:.2f} >> avg {avg3:.2f} → consider −{lim-avg3:.2f}"
                 )

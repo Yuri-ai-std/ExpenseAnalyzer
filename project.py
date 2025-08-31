@@ -5,7 +5,6 @@ import os
 import sqlite3
 from collections import Counter, defaultdict
 from datetime import datetime
-from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -21,9 +20,8 @@ from db import DB_PATH  # если реально используете кон�
 from db import ensure_schema  # инициализация схемы при старте
 from db import get_expenses_df  # универсальная выборка как DataFrame
 from db import list_categories as db_list_categories
-from db import add_expense as db_add_expense
 from messages import messages
-from utils import load_monthly_limits, save_monthly_limits, mean3, prev_month_key
+from utils import prev_month_key
 
 REPORTS_DIR = Path("reports/plots")
 
