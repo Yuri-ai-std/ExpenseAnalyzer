@@ -2,19 +2,17 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
 from datetime import date, timedelta
+from pathlib import Path
 
 import pandas as pd
 import pytest
-import project
 
 # — тестируемые модули/функции
-from db import ensure_schema, add_expense, get_expenses_df
+from db import add_expense, ensure_schema, get_expenses_df
+from messages import messages as ALL_MESSAGES
 from project import check_budget_limits, suggest_limits_for_month
 from utils import month_key
-from messages import messages as ALL_MESSAGES
-
 
 # ---------- фикстуры ----------
 

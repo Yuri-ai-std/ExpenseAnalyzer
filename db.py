@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Iterable, Union
 from os import PathLike
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -97,7 +96,7 @@ def get_expenses_df(
         SELECT date, category, amount, COALESCE(description, '') AS description
         FROM expenses
         {' '.join(where_parts)}
-        ORDER BY date
+        ORDER BY date DESC, id DESC
     """
     with sqlite3.connect(db_path) as conn:
         df = pd.read_sql_query(sql, conn, params=params)
@@ -184,14 +183,21 @@ def get_all_expenses(
 
 
 def list_categories(db_path: Optional[str] = None) -> list[str]:
-    """
-    Список категорий по алфавиту.
-    """
-    path = _resolve_db_path(db_path)
-    sql = "SELECT DISTINCT category FROM expenses ORDER BY category ASC"
-    with sqlite3.connect(path) as conn:
-        cur = conn.execute(sql)
-        return [str(r[0]) for r in cur.fetchall()]
+    path = db_path or DB_PATH
+    conn = sqlite3.connect(path)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT DISTINCT category
+        FROM expenses
+        WHERE category IS NOT NULL
+          AND TRIM(category) <> ''
+        ORDER BY 1;
+        """
+    )
+    rows = [r[0] for r in cur.fetchall()]
+    conn.close()
+    return rows
 
 
 def migrate_json_to_sqlite(

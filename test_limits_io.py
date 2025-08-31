@@ -1,6 +1,5 @@
 # test_limits_io.py
 import io
-import json
 from datetime import date
 
 import pytest

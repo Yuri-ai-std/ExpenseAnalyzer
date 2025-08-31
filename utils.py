@@ -1,9 +1,11 @@
 import json
-import os
-import re, json, sqlite3, shutil
+import re
+import shutil
+import sqlite3
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
+
 import pandas as pd
 
 DATA_DIR = Path("data")
