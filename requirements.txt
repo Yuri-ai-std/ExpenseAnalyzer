@@ -1,17 +1,21 @@
 # requirements.txt
 
-# --- тестирование ---
-pytest==8.1.1
+# ==== runtime dependencies ====
+streamlit-nightly==1.49.2.dev20250831
+pandas==2.2.2
+numpy==2.0.2
+altair==5.3.0
 
-# --- работа с данными ---
-pandas>=2.2.2
-matplotlib>=3.8.4
-XlsxWriter>=3.2.0
-openpyxl>=3.1.2
+# ==== utilities ====
+watchdog==6.0.0
+openpyxl==3.1.2
+XlsxWriter==3.2.0
+matplotlib==3.8.4
 
-# --- утилиты ---
-watchdog>=6.0.0
-
-# --- форматирование и сортировка импортов ---
+# ==== formatting and imports ====
 black==24.4.2
 isort==5.13.2
+
+# ==== testing ====
+pytest==8.1.1
+flake8==7.1.1

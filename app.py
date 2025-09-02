@@ -41,22 +41,6 @@ from utils import (
 # --- aliases for tests (test_limits_io.py expects underscored names)
 _limits_to_csv_bytes = limits_to_csv_bytes
 
-# --- Проверка поддержки duration в st.toast ---
-try:
-    if "duration" not in st.toast.__code__.co_varnames:
-        st.warning(
-            "⚠️ Ваша версия Streamlit не поддерживает параметр `duration`.\n"
-            "Обновитесь командой:\n"
-            "`pip install --upgrade streamlit-nightly`"
-        )
-except AttributeError:
-    st.warning(
-        "⚠️ Ваша версия Streamlit устарела.\n"
-        "Обновитесь командой:\n"
-        "`pip install --upgrade streamlit-nightly`"
-    )
-
-
 st.session_state.setdefault("current_user", "default")
 current_user = st.session_state["current_user"]
 
@@ -216,6 +200,27 @@ def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
     return out
 
 
+# ---- Toast Helper ----
+def safe_toast(message: str, *, icon: str | None = None, duration: int = 5) -> None:
+    """
+    Cross-version toast notification:
+    - On nightly builds → uses duration
+    - On stable builds → ignores duration safely
+    Shows a one-time warning if duration is not supported.
+    """
+    try:
+        st.toast(message, icon=icon, duration=duration)
+    except TypeError:
+        st.toast(message, icon=icon)
+        flag = "_warn_no_duration_shown"
+        if not st.session_state.get(flag):
+            st.warning(
+                "Your Streamlit version does not support the `duration` parameter. "
+                "Consider upgrading: `pip install --upgrade streamlit-nightly`."
+            )
+            st.session_state[flag] = True
+
+
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
 print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -303,23 +308,31 @@ if choice == "Dashboard":
     today = date.today()
     month_start = today.replace(day=1)
 
-    c1, c2, c3 = st.columns([1, 1, 0.5])
+    c1, c2, c3 = st.columns((1, 1, 0.5))
     with c1:
         start_d = st.date_input(
-            "Start", value=st.session_state.get("dash_start", month_start)
+            "Start",
+            value=st.session_state.get("dash_start", month_start),
+            key="dash_start",  # ← уникальный ключ
         )
     with c2:
-        end_d = st.date_input("End", value=st.session_state.get("dash_end", today))
+        end_d = st.date_input(
+            "End",
+            value=st.session_state.get("dash_end", today),
+            key="dash_end",  # ← уникальный ключ
+        )
     with c3:
-        refresh = st.button("Apply")
+        refresh = st.button(
+            "Apply", key="dash_apply"
+        )  # (не обязательно, но тоже даём ключ)
 
     # запомним выбор
     if refresh:
         st.session_state["dash_start"] = start_d
         st.session_state["dash_end"] = end_d
 
-    start_s = (st.session_state.get("dash_start", month_start)).strftime("%Y-%m-%d")
-    end_s = (st.session_state.get("dash_end", today)).strftime("%Y-%m-%d")
+    start_s = st.session_state.get("dash_start", month_start).strftime("%Y-%m-%d")
+    end_s = st.session_state.get("dash_end", today).strftime("%Y-%m-%d")
 
     # ----- Данные -----
     raw_df = load_df(start_s, end_s)
@@ -417,7 +430,10 @@ elif choice == "Add Expense":
 
     with st.form("add_expense_form", clear_on_submit=True):
         # дата
-        d = st.date_input(msgs.get("date", "Date"))
+        d = st.date_input(
+            msgs.get("date", "Date"),
+            key=f"add_expense_date_{st.session_state.get('current_user', 'default')}",
+        )
         date_err = st.empty()
 
         # режим ввода категории: выбрать/новая
@@ -512,7 +528,7 @@ elif choice == "Add Expense":
                     st.success(msgs.get("expense_added", "Expense added successfully!"))
 
                     # тост с увеличенной продолжительностью (7 секунд)
-                    st.toast(
+                    safe_toast(
                         msgs.get("expense_added", "Expense added successfully!"),
                         icon="✅",
                         duration=7,
@@ -552,11 +568,19 @@ elif choice == "Browse & Filter":
         c1, c2 = st.columns(2)
         with c1:
             start = st.date_input(
-                "Start", value=min_date, min_value=min_date, max_value=max_date
+                "Start",
+                value=min_date,
+                min_value=min_date,
+                max_value=max_date,
+                key="filter_start_date",  # Уникальный ключ для поля Start
             )
         with c2:
             end = st.date_input(
-                "End", value=max_date, min_value=min_date, max_value=max_date
+                "End",
+                value=max_date,
+                min_value=min_date,
+                max_value=max_date,
+                key="filter_end_date",  # Уникальный ключ для поля End
             )
 
         c3, c4 = st.columns([2, 1])
@@ -649,7 +673,7 @@ elif choice == "Browse & Filter":
     # --- Таблица ---
     st.dataframe(
         f_show,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         column_config={
             "amount": st.column_config.NumberColumn("Amount", format="%.2f"),
@@ -675,14 +699,20 @@ elif choice == "Browse & Filter":
 elif choice == "Charts":
     st.title(msgs.get("charts", "Charts"))
 
-    # ---- Контролы периода ----
+    # ---- Контроли периода ----
     colp1, colp2, colp3 = st.columns([1.4, 1.4, 1])
+
     start_c = colp1.date_input(
         msgs.get("start", "Start"),
         value=_date(_date.today().year, _date.today().month, 1),
+        key="charts_start",  # уникальный ключ
     )
-    end_c = colp2.date_input(msgs.get("end", "End"), value=_date.today())
-    apply_c = colp3.button(msgs.get("apply", "Apply"), use_container_width=True)
+
+    end_c = colp2.date_input(
+        msgs.get("end", "End"), value=_date.today(), key="charts_end"  # уникальный ключ
+    )
+
+    apply_c = colp3.button(msgs.get("apply", "Apply"), width="stretch")
 
     # Грузим данные по периоду
     df_raw = load_df(str(start_c), str(end_c)) if apply_c or True else load_df()
@@ -797,7 +827,7 @@ elif choice == "Charts":
     with st.expander(msgs.get("show_table", "Show data")):
         st.dataframe(
             (df.sort_values("date", ascending=False)).reset_index(drop=True),
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "amount": st.column_config.NumberColumn(
@@ -861,7 +891,7 @@ with col_u2:
 
 with col_u3:
     st.caption("")  # выравнивание
-    if st.button("Create", use_container_width=True):
+    if st.button("Create", width="stretch"):
         u = create_user(new_name or "user")
         st.session_state["current_user"] = u
         st.success(f"User '{u}' is ready.")
@@ -943,7 +973,7 @@ with col_u2:
     with st.popover("New profile"):
         st.write("Allowed: letters, digits, _ and -")
         new_name = st.text_input("Profile name", "")
-        create = st.button("Create", type="primary", use_container_width=True)
+        create = st.button("Create", type="primary", width="stretch")
         if create:
             name = new_name.strip().lower()
             if not name:
@@ -964,7 +994,7 @@ with col_u2:
 # переключение активного пользователя
 if sel != current_user:
     st.session_state["current_user"] = sel
-    st.toast(f"Switched to '{sel}'", icon="👤")
+    safe_toast(f"Switched to '{sel}'", icon="🔄", duration=3)
     st.rerun()
 
 current_user = st.session_state["current_user"]
@@ -1065,14 +1095,14 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("Save", type="primary", key=f"save_limits_{mk}"):
         _save_limits(mk, values, limits_path)
-        st.toast("Limits saved", icon="💾", duration=5)
+        safe_toast("Limits saved", icon="✅", duration=3)
         st.cache_data.clear()
         st.rerun()
 
 with col2:
     if st.button("Clear month limits", key=f"clear_limits_{mk}"):
         _save_limits(mk, {}, limits_path)
-        st.toast("Limits cleared", icon="🧹", duration=5)
+        safe_toast("Limits cleared", icon="🧹", duration=3)
         st.cache_data.clear()
         st.rerun()
 
@@ -1119,8 +1149,7 @@ with exp_col2:
             append_audit_row(old=current_limits, new=imported_limits)
 
             # уведомление + мягкий rerun
-            st.success(msgs.get("saved", "Saved!"))
-            st.toast(msgs.get("saved", "Saved!"), icon="✅")
+            safe_toast(msgs.get("saved", "Saved!"), icon="✅", duration=3)
             st.cache_data.clear()
             st.rerun()
 
