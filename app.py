@@ -200,25 +200,12 @@ def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
     return out
 
 
-# ---- Toast Helper ----
-def safe_toast(message: str, *, icon: str | None = None, duration: int = 5) -> None:
-    """
-    Cross-version toast notification:
-    - On nightly builds → uses duration
-    - On stable builds → ignores duration safely
-    Shows a one-time warning if duration is not supported.
-    """
-    try:
-        st.toast(message, icon=icon, duration=duration)
-    except TypeError:
-        st.toast(message, icon=icon)
-        flag = "_warn_no_duration_shown"
-        if not st.session_state.get(flag):
-            st.warning(
-                "Your Streamlit version does not support the `duration` parameter. "
-                "Consider upgrading: `pip install --upgrade streamlit-nightly`."
-            )
-            st.session_state[flag] = True
+# ---- flash-toast from previous run ----
+_flash = st.session_state.pop("_flash", None)
+if _flash:
+    # _flash: tuple[str, str|None] -> (message, icon)
+    msg, icon = (_flash + (None,))[:2]
+    st.toast(msg, icon=icon)
 
 
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
@@ -372,7 +359,7 @@ if choice == "Dashboard":
 
     st.dataframe(
         last5,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
         height=220,  # немного увеличим высоту для наглядности
     )
@@ -527,11 +514,10 @@ elif choice == "Add Expense":
                     # уведомления + перерисовка страницы
                     st.success(msgs.get("expense_added", "Expense added successfully!"))
 
-                    # тост с увеличенной продолжительностью (7 секунд)
-                    safe_toast(
+                    # тост через flash-механизм
+                    st.session_state["_flash"] = (
                         msgs.get("expense_added", "Expense added successfully!"),
-                        icon="✅",
-                        duration=7,
+                        "✅",
                     )
 
                     # сброс кэша и мягкая перерисовка страницы
@@ -891,7 +877,7 @@ with col_u2:
 
 with col_u3:
     st.caption("")  # выравнивание
-    if st.button("Create", width="stretch"):
+    if st.button("Create", use_container_width=True):
         u = create_user(new_name or "user")
         st.session_state["current_user"] = u
         st.success(f"User '{u}' is ready.")
@@ -973,7 +959,7 @@ with col_u2:
     with st.popover("New profile"):
         st.write("Allowed: letters, digits, _ and -")
         new_name = st.text_input("Profile name", "")
-        create = st.button("Create", type="primary", width="stretch")
+        create = st.button("Create", type="primary", use_container_width=True)
         if create:
             name = new_name.strip().lower()
             if not name:
@@ -994,7 +980,7 @@ with col_u2:
 # переключение активного пользователя
 if sel != current_user:
     st.session_state["current_user"] = sel
-    safe_toast(f"Switched to '{sel}'", icon="🔄", duration=3)
+    st.session_state["_flash"] = (f"Switched to '{sel}'", "🆕")
     st.rerun()
 
 current_user = st.session_state["current_user"]
@@ -1095,14 +1081,14 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("Save", type="primary", key=f"save_limits_{mk}"):
         _save_limits(mk, values, limits_path)
-        safe_toast("Limits saved", icon="✅", duration=3)
+        st.session_state["_flash"] = ("Limits saved", "✅")
         st.cache_data.clear()
         st.rerun()
 
 with col2:
     if st.button("Clear month limits", key=f"clear_limits_{mk}"):
         _save_limits(mk, {}, limits_path)
-        safe_toast("Limits cleared", icon="🧹", duration=3)
+        st.session_state["_flash"] = ("Limits cleared", "🗑️")
         st.cache_data.clear()
         st.rerun()
 
@@ -1149,7 +1135,7 @@ with exp_col2:
             append_audit_row(old=current_limits, new=imported_limits)
 
             # уведомление + мягкий rerun
-            safe_toast(msgs.get("saved", "Saved!"), icon="✅", duration=3)
+            st.session_state["_flash"] = (msgs.get("saved", "Saved!"), "✅")
             st.cache_data.clear()
             st.rerun()
 
