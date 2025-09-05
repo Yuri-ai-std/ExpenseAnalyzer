@@ -1,5 +1,4 @@
 import json
-import re
 import sqlite3
 from datetime import date
 from datetime import date as _date
@@ -11,8 +10,9 @@ from typing import Dict
 import altair as alt
 import pandas as pd
 import streamlit as st
+from pyparsing import cast
 
-from db import add_expense, get_expenses_df, list_categories
+from db import add_expense, ensure_db, get_db_path, get_expenses_df, list_categories
 
 # CSV/аудит для лимитов
 from limits_tools import (
@@ -20,22 +20,16 @@ from limits_tools import (
     audit_to_csv_bytes,
     audit_to_json_bytes,
     csv_bytes_to_limits,
-    limits_to_csv_bytes,
     get_audit,
+    limits_to_csv_bytes,
 )
-
 from messages import messages
 from utils import (
-    DATA_DIR,
-    create_user,
     db_path_for,
-    delete_user,
     limits_path_for,
-    list_users,
     load_monthly_limits,
     month_key,
     save_monthly_limits,
-    user_files,
 )
 
 # --- aliases for tests (test_limits_io.py expects underscored names)
@@ -46,10 +40,18 @@ current_user = st.session_state["current_user"]
 
 ACTIVE_DB_PATH = db_path_for(current_user)  # data/default_expenses.db
 ACTIVE_LIMITS_PATH = limits_path_for(current_user)  # data/default/budget_limits.json
+DATA_DIR = Path("data")
 
 # делаем пути видимыми для других модулей через session_state
 st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH
 st.session_state["ACTIVE_LIMITS_PATH"] = str(ACTIVE_LIMITS_PATH)
+
+# ---- flash-toast from previous run ----
+_flash = st.session_state.pop("_flash", None)
+if _flash:
+    # _flash: tuple[str, str|None] -> (message, icon)
+    msg, icon = (_flash + (None,))[:2]
+    st.toast(msg, icon=icon)
 
 
 # ---- Active user & paths (single source of truth) ----
@@ -200,14 +202,6 @@ def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
     return out
 
 
-# ---- flash-toast from previous run ----
-_flash = st.session_state.pop("_flash", None)
-if _flash:
-    # _flash: tuple[str, str|None] -> (message, icon)
-    msg, icon = (_flash + (None,))[:2]
-    st.toast(msg, icon=icon)
-
-
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
 print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -264,8 +258,8 @@ def _fetch_categories() -> list[str]:
     # 1) если есть list_categories в db.py — используйте его
     try:
         from db import (
-            list_categories as _list_categories,
-        )  # локальный импорт на случай отсутствия
+            list_categories as _list_categories,  # локальный импорт на случай отсутствия
+        )
 
         cats = _list_categories()
         if cats:
@@ -284,6 +278,39 @@ def _fetch_categories() -> list[str]:
     return ["food", "transport", "health", "entertainment", "other"]
 
 
+# ====== Add Expense: хелперы ключей (вставить один раз выше по файлу) ======
+
+
+def _add_form_suffix() -> str:
+    """Суффикс для ключей формы — по активному пользователю."""
+    return st.session_state.get("current_user", "default")
+
+
+def add_form_keys() -> dict[str, str]:
+    """Единое место, где объявлены ВСЕ ключи формы Add Expense."""
+    sfx = _add_form_suffix()
+    return {
+        "mode": f"add_cat_mode_{sfx}",
+        "choose": f"add_cat_choose_{sfx}",
+        "new": f"add_cat_new_{sfx}",
+        "date": f"add_date_{sfx}",
+        "amount": f"add_amount_{sfx}",
+        "note": f"add_note_{sfx}",
+        "reset": f"add_form_reset_{sfx}",  # внутренний флажок мягкого сброса
+    }
+
+
+def add_form_soft_reset() -> None:
+    """Мягкий сброс значений ДО инстанса виджетов."""
+    k = add_form_keys()
+    if st.session_state.pop(k["reset"], False):
+        st.session_state.pop(k["choose"], None)
+        st.session_state.pop(k["new"], None)
+        st.session_state.pop(k["amount"], None)
+        st.session_state.pop(k["note"], None)
+        st.session_state.pop(k["mode"], None)
+
+
 # --- Меню ---
 menu = ["Dashboard", "Add Expense", "Browse & Filter", "Charts", "Settings"]
 choice = st.sidebar.radio("Menu", menu)
@@ -291,35 +318,43 @@ choice = st.sidebar.radio("Menu", menu)
 if choice == "Dashboard":
     st.title(msgs.get("dashboard", "Dashboard"))
 
-    # ----- Период по умолчанию: текущий месяц -----
     today = date.today()
     month_start = today.replace(day=1)
 
+    # 1) Хранимые значения фильтров в session_state (строки 'YYYY-MM-DD')
+    if "dash_start" not in st.session_state:
+        st.session_state["dash_start"] = month_start.isoformat()
+    if "dash_end" not in st.session_state:
+        st.session_state["dash_end"] = today.isoformat()
+
+    # 2) Виджеты используют другие ключи, чтобы не конфликтовать с session_state
     c1, c2, c3 = st.columns((1, 1, 0.5))
     with c1:
         start_d = st.date_input(
             "Start",
-            value=st.session_state.get("dash_start", month_start),
-            key="dash_start",  # ← уникальный ключ
+            value=pd.to_datetime(st.session_state["dash_start"]).date(),
+            key="dash_start_input",
         )
     with c2:
         end_d = st.date_input(
             "End",
-            value=st.session_state.get("dash_end", today),
-            key="dash_end",  # ← уникальный ключ
+            value=pd.to_datetime(st.session_state["dash_end"]).date(),
+            key="dash_end_input",
         )
     with c3:
-        refresh = st.button(
-            "Apply", key="dash_apply"
-        )  # (не обязательно, но тоже даём ключ)
+        refresh = st.button("Apply", key="dash_apply")
 
-    # запомним выбор
+    # 3) При нажатии Apply переносим значения из виджетов в хранилище
+    # и мягко перерисовываем страницу
     if refresh:
-        st.session_state["dash_start"] = start_d
-        st.session_state["dash_end"] = end_d
+        st.session_state["dash_start"] = start_d.isoformat()
+        st.session_state["dash_end"] = end_d.isoformat()
+        st.session_state["_flash"] = ("Filters applied", "⚙️")
+        st.rerun()
 
-    start_s = st.session_state.get("dash_start", month_start).strftime("%Y-%m-%d")
-    end_s = st.session_state.get("dash_end", today).strftime("%Y-%m-%d")
+    # 4) Строки для загрузки данных
+    start_s = st.session_state["dash_start"]  # 'YYYY-MM-DD'
+    end_s = st.session_state["dash_end"]  # 'YYYY-MM-DD'
 
     # ----- Данные -----
     raw_df = load_df(start_s, end_s)
@@ -375,158 +410,119 @@ if choice == "Dashboard":
     )
     st.bar_chart(cat_totals, use_container_width=True)
 
+# ======================= Add Expense =======================
 elif choice == "Add Expense":
     st.title(msgs.get("add_expense", "Add Expense"))
-    # --- persistent success banner after rerun ---
-    if st.session_state.pop("expense_added_banner", False):
-        st.markdown(
-            """
-            <div style="
-                background-color: #d4edda;
-                color: #155724;
-                padding: 10px 16px;
-                border-radius: 8px;
-                border: 1px solid #c3e6cb;
-                font-size: 16px;
-                margin: 10px 0;
-                display: flex;
-                align-items: center;
-            ">
-                ✅ <span style="margin-left: 10px;">Expense added successfully!</span>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    # 1) активная БД (мы её уже кладём в session_state)
-    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+    # ---- активный пользователь и БД ----
+    user = get_active_user()
+    db_path = get_db_path(user)
+    ensure_db(db_path)
 
-    # 2) список категорий из активной БД (фоллбэк на прямой SQL)
-    try:
-        # если у вас есть хелпер list_categories(db_path=...), раскомментируйте:
-        # from db import list_categories as _list_categories
-        # cats = _list_categories(db_path=db_path)
+    # категории (объединённый список из БД и лимитов)
+    cats = list_categories(db_path=db_path)
 
-        with sqlite3.connect(db_path) as _conn:
-            rows = _conn.execute(
-                "SELECT DISTINCT category FROM expenses ORDER BY category"
-            ).fetchall()
-        cats = [r[0] for r in rows if r and r[0]]
-    except Exception:
-        cats = []
+    # ключи формы + мягкий сброс (ВАЖНО вызвать до виджетов!)
+    keys = add_form_keys()
+    add_form_soft_reset()
 
-    with st.form("add_expense_form", clear_on_submit=True):
-        # дата
+    # (необязательно) отладочный префикс
+    from pathlib import Path
+
+    db_name = Path(db_path).name if db_path else str(db_path)
+    st.caption(f"DBG ➜ user={user} | db={db_name} | cats={cats!r}")
+
+    # ---------- форма ввода ----------
+    with st.form("add_expense_form", clear_on_submit=False):
         d = st.date_input(
             msgs.get("date", "Date"),
-            key=f"add_expense_date_{st.session_state.get('current_user', 'default')}",
+            value=date.today(),
+            format="YYYY/MM/DD",
+            key=keys["date"],
         )
-        date_err = st.empty()
 
-        # режим ввода категории: выбрать/новая
-        col_left, col_right = st.columns([1, 1])
-        with col_left:
-            mode = st.radio(
-                msgs.get("category", "Category"),
-                options=["choose", "new"],
-                index=0 if cats else 1,
-                horizontal=True,
-                captions=[
-                    msgs.get("choose_existing", "Choose existing"),
-                    msgs.get("enter_new", "Enter new"),
-                ],
-            )
+        mode = st.radio(
+            msgs.get("category", "Category"),
+            options=["choose", "new"],
+            index=0 if cats else 1,
+            horizontal=True,
+            captions=[
+                msgs.get("choose_existing", "Choose existing"),
+                msgs.get("enter_new", "Enter new"),
+            ],
+            key=keys["mode"],
+        )
 
-        cat_val = None
-        cat_err = st.empty()
         if mode == "choose":
             cat_val = st.selectbox(
                 msgs.get("choose_category", "Choose category"),
                 options=cats,
-                index=0 if cats else None,
-                placeholder=msgs.get("placeholder_category", "No categories yet"),
+                index=None,
+                placeholder=msgs.get("choose_placeholder", "Choose an option"),
+                key=keys["choose"],
             )
         else:
             cat_val = st.text_input(
                 msgs.get("new_category", "New category"),
-                placeholder=msgs.get("placeholder_new_category", "Type category name"),
+                key=keys["new"],
             )
 
         amount = st.number_input(
             msgs.get("amount", "Amount"),
             min_value=0.0,
+            step=0.01,
             format="%.2f",
+            key=keys["amount"],
         )
-        amount_err = st.empty()
 
-        note = st.text_area(msgs.get("description", "Description"))
+        note = st.text_area(
+            msgs.get("description", "Description"),
+            key=keys["note"],
+        )
 
         submit = st.form_submit_button(msgs.get("submit", "Submit"))
 
-        if submit:
-            has_error = False
+    # ---------- обработка сабмита ----------
+    if submit:
+        has_error = False
 
-            # валидации
-            if not d:
-                date_err.error(msgs.get("error_date", "Please select a date."))
-                has_error = True
-            else:
-                date_err.empty()
+        # валидация категории
+        cat_val = (cat_val or "").strip()
+        if not cat_val:
+            st.error(msgs.get("error_category", "Please enter / choose a category."))
+            has_error = True
 
-            category_norm = (cat_val or "").strip()
-            if not category_norm:
-                cat_err.error(
-                    msgs.get("error_category", "Please enter / choose a category.")
+        # валидация суммы
+        try:
+            amt_f = float(amount)
+            if amt_f <= 0:
+                raise ValueError
+        except Exception:
+            st.error(msgs.get("error_amount", "Amount must be greater than zero."))
+            has_error = True
+
+        if not has_error:
+            try:
+                add_expense(
+                    date=str(d),
+                    category=cat_val,  # <-- cat_val_s НЕ используем
+                    amount=amt_f,
+                    description=(note or "").strip(),
+                    db_path=db_path,
                 )
-                has_error = True
-            else:
-                cat_err.empty()
-
-            amt = float(amount)
-            if amt <= 0:
-                amount_err.error(
-                    msgs.get("error_amount", "Amount must be greater than zero.")
+                # флеш-тост + плановый мягкий сброс на следующем рендере
+                st.session_state["_flash"] = (
+                    msgs.get("expense_added", "Expense added successfully!"),
+                    "✅",
                 )
-                has_error = True
-            else:
-                amount_err.empty()
+                st.session_state[keys["reset"]] = True
 
-            # сохранение
-            if not has_error:
-                try:
-                    # если ваша add_expense поддерживает явный путь — можно так:
-                    # add_expense(
-                    #     date=str(d),
-                    #     category=category_norm,
-                    #     amount=amt,
-                    #     description=(note or "").strip(),
-                    #     db_path=db_path,
-                    # )
+                st.cache_data.clear()
+                st.rerun()
 
-                    # у вас add_expense уже резолвит путь через session_state → достаточно так:
-                    add_expense(
-                        date=str(d),
-                        category=category_norm,
-                        amount=amt,
-                        description=(note or "").strip(),
-                    )
-
-                    # уведомления + перерисовка страницы
-                    st.success(msgs.get("expense_added", "Expense added successfully!"))
-
-                    # тост через flash-механизм
-                    st.session_state["_flash"] = (
-                        msgs.get("expense_added", "Expense added successfully!"),
-                        "✅",
-                    )
-
-                    # сброс кэша и мягкая перерисовка страницы
-                    st.cache_data.clear()
-                    st.rerun()
-
-                except Exception as ex:
-                    st.error(msgs.get("save_error", "Could not save expense."))
-                    st.exception(ex)
+            except Exception as ex:
+                st.error(msgs.get("save_error", "Could not save expense."))
+                st.exception(ex)
 
 elif choice == "Browse & Filter":
     st.title(msgs.get("browse_filter", "Browse & Filter"))
@@ -829,17 +825,6 @@ elif choice == "Charts":
 elif choice == "Settings":
     st.title(msgs.get("settings", "Settings"))
 
-    # ---- flash от предыдущей операции ----
-    flash = st.session_state.pop("flash", None)
-    if flash:
-        kind, text = flash  # "success"|"info"|"warning"|"error"
-        {
-            "success": st.success,
-            "info": st.info,
-            "warning": st.warning,
-            "error": st.error,
-        }.get(kind, st.info)(text)
-
     # ---- язык интерфейса ----
     lang = st.selectbox(
         "Language",
@@ -852,175 +837,189 @@ elif choice == "Settings":
 
     st.divider()
 
-    # --- Users / Profiles -------------------------------------------------
-st.subheader("User / Profile")
-
-# Текущий пользователь в сессии
-current_user: str = st.session_state.get("current_user", "default")
-
-# Список профилей
-users = list_users()
-if current_user not in users:
-    current_user = users[0]
-    st.session_state["current_user"] = current_user
-
-col_u1, col_u2, col_u3 = st.columns([2, 2, 1])
-
-with col_u1:
-    sel = st.selectbox("Active user", users, index=users.index(current_user))
-    if sel != current_user:
-        st.session_state["current_user"] = sel
-        st.rerun()
-
-with col_u2:
-    new_name = st.text_input("Create / rename user", value="")
-
-with col_u3:
-    st.caption("")  # выравнивание
-    if st.button("Create", use_container_width=True):
-        u = create_user(new_name or "user")
-        st.session_state["current_user"] = u
-        st.success(f"User '{u}' is ready.")
-        st.rerun()
-
-# Информация о файлах профиля
-db_path, limits_path = user_files(current_user)
-st.caption(f"DB: `{db_path.name}`  —  Limits: `{limits_path.name}`")
-
-# Удаление/архивирование
-del_c1, del_c2, del_c3 = st.columns([1, 1, 2])
-with del_c1:
-    archive_before = st.checkbox("Archive before delete", value=True)
-with del_c2:
-    danger = st.button("Delete user", type="secondary")
-with del_c3:
-    st.caption("You cannot delete the last remaining user.")
-
-if danger:
-    if len(users) <= 1:
-        st.error("Cannot delete the only user.")
-    else:
-        key = f"confirm_del_{current_user}"
-        st.session_state[key] = True
-
-# второй шаг подтверждения
-key = f"confirm_del_{current_user}"
-if st.session_state.get(key):
-    st.warning(f"Delete user '{current_user}'? This action cannot be undone.")
-    c1, c2 = st.columns([1, 4])
-    with c1:
-        if st.button("Yes, delete", type="primary"):
-            delete_user(current_user, archive=archive_before)
-            # переключимся на оставшегося
-            left = list_users()
-            st.session_state.pop(key, None)
-            st.session_state["current_user"] = left[0] if left else "default"
-            st.success("User deleted.")
-            st.rerun()
-    with c2:
-        if st.button("Cancel"):
-            st.session_state.pop(key, None)
-            st.info("Cancelled.")
-            st.rerun()
+# =================== /User / Profile ===================
 
 
-# 1) собрать список профилей из папки data (ищем <user>_expenses.db и <user>_budget_limits.json)
-def _list_users() -> list[str]:
-    users: set[str] = set()
-    DATA_DIR.mkdir(exist_ok=True)
-    for p in Path(DATA_DIR).glob("*_expenses.db"):
-        users.add(p.name.replace("_expenses.db", ""))
-    for p in Path(DATA_DIR).glob("*_budget_limits.json"):
-        users.add(p.name.replace("_budget_limits.json", ""))
-    if not users:
-        users.add("default")
-    return sorted(users)
+def limits_path(user: str) -> Path:
+    return DATA_DIR / f"{user}_budget_limits.json"
 
 
-users = _list_users()
-
-# 2) активный пользователь (в session_state хранится навсегда для сессии)
-current_user: str = st.session_state.get("current_user", "default")
-if current_user not in users:
-    current_user = "default"
-
-col_u1, col_u2 = st.columns([2, 1])
-
-with col_u1:
-    sel = st.selectbox(
-        "Active user",
-        users,
-        index=users.index(current_user) if current_user in users else 0,
-        help="Pick a profile to work with",
+def list_users() -> list[str]:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    users = sorted(
+        p.name.replace("_expenses.db", "") for p in DATA_DIR.glob("*_expenses.db")
     )
+    # если совсем пусто — гарантируем default
+    return users or ["default"]
 
-with col_u2:
-    # форма создания нового профиля
-    with st.popover("New profile"):
-        st.write("Allowed: letters, digits, _ and -")
-        new_name = st.text_input("Profile name", "")
-        create = st.button("Create", type="primary", use_container_width=True)
-        if create:
-            name = new_name.strip().lower()
-            if not name:
-                st.error("Empty name.")
-            elif not re.fullmatch(r"[a-z0-9_-]{1,32}", name):
-                st.error("Only [a-z0-9_-], up to 32 chars.")
-            else:
-                # создать пустые файлы путей (БД появится по первой записи)
-                DATA_DIR.mkdir(exist_ok=True)
-                # создаём пустой файл лимитов, если его нет
-                limits_path_for(name).write_text("{}", encoding="utf-8")
-                # расширяем список и сразу делаем активным
-                users = sorted(set(users) | {name})
-                st.session_state["current_user"] = name
-                st.success(f"Profile '{name}' created and selected.")
-                st.rerun()
 
-# переключение активного пользователя
-if sel != current_user:
-    st.session_state["current_user"] = sel
-    st.session_state["_flash"] = (f"Switched to '{sel}'", "🆕")
+def files_for(user: str) -> tuple[Path, Path]:
+    return Path(get_db_path(user)), limits_path(user)
+
+
+def archive_user(user: str) -> Path:
+    """Перемещает файлы юзера в архивную папку и возвращает путь архива."""
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    arch_dir = DATA_DIR / "archives" / f"{user}_{ts}"
+    arch_dir.mkdir(parents=True, exist_ok=True)
+    dbf, limf = files_for(user)
+    if dbf.exists():
+        dbf.rename(arch_dir / dbf.name)
+    if limf.exists():
+        limf.rename(arch_dir / limf.name)
+    return arch_dir
+
+
+def rename_user(old: str, new: str) -> None:
+    """Переименовать файлы пользователя (если есть)."""
+    if old == new:
+        return
+    src_db, src_lim = files_for(old)
+    dst_db, dst_lim = files_for(new)
+    # защита от перезаписи
+    if dst_db.exists() or dst_lim.exists():
+        raise FileExistsError("User with this name already exists.")
+    if src_db.exists():
+        src_db.rename(dst_db)
+    if src_lim.exists():
+        src_lim.rename(dst_lim)
+
+
+def switch_user(user: str, toast: str = "Switched"):
+    st.session_state["current_user"] = user
+    st.session_state["_flash"] = (f"{toast} to '{user}'", "🆕")
     st.rerun()
 
-current_user = st.session_state["current_user"]
-st.caption(
-    f"Data files:  DB → `{db_path_for(current_user)}`,  limits → `{limits_path_for(current_user)}`"
-)
 
-st.divider()
+# ---- UI ----
+st.subheader("User / Profile")
+
+# текущее значение
+current = st.session_state.setdefault("current_user", "default")
+users = list_users()
+if current not in users:
+    # если активного нет в списке (после ручных манипуляций с файлами) — приводим в порядок
+    current = users[0]
+    st.session_state["current_user"] = current
+
+# первая строка: Active user + Create / rename user + Create
+c1, c2, c3 = st.columns([1.2, 1.2, 0.6])
+with c1:
+    sel = st.selectbox(
+        "Active user", users, index=users.index(current), key="settings_active_user"
+    )
+with c2:
+    new_name = st.text_input(
+        "Create / rename user",
+        value="",
+        placeholder="Type name",
+        key="settings_new_name",
+    ).strip()
+with c3:
+    if st.button("Create", key="settings_btn_create"):
+        if not new_name:
+            st.warning("Please enter a name.")
+        elif new_name in users:
+            st.warning("User with this name already exists.")
+        else:
+            # лениво создаём БД (ensure_db) и переключаемся
+            ensure_db(get_db_path(new_name))
+            switch_user(new_name, toast="Created & switched")
+
+# подпись с файлами активного пользователя
+dbf, limf = files_for(sel)
+st.caption(f"DB:  {dbf.name}  —  Limits:  {limf.name}")
+
+# вторая строка: архивирование + Delete + Rename
+c4, c5, c6 = st.columns([0.9, 0.7, 0.7])
+with c4:
+    do_archive = st.checkbox(
+        "Archive before delete", value=True, key="settings_archive_before_delete"
+    )
+
+with c5:
+    disable_delete = len(users) <= 1
+    if st.button("Delete user", disabled=disable_delete, key="settings_btn_delete"):
+        if disable_delete:
+            st.info("You cannot delete the last remaining user.")
+        else:
+            try:
+                if do_archive:
+                    archive_user(sel)
+                else:
+                    # удаляем файлы без архивации
+                    if dbf.exists():
+                        dbf.unlink()
+                    if limf.exists():
+                        limf.unlink()
+                # после удаления выбираем другого юзера
+                remaining = [u for u in list_users() if u != sel]
+                switch_user(
+                    remaining[0] if remaining else "default", toast="Deleted, switched"
+                )
+            except Exception as e:
+                st.error("Deletion failed.")
+                st.exception(e)
+
+with c6:
+    # отдельная кнопка Rename для текущего sel → new_name
+    if st.button("Rename", key="settings_btn_rename"):
+        if not new_name:
+            st.warning("Please enter a new name.")
+        elif new_name in users:
+            st.warning("User with this name already exists.")
+        elif sel == "default":
+            # при желании можно запретить переименование default — уберите этот блок, если не нужно
+            try:
+                rename_user(sel, new_name)
+                switch_user(new_name, toast="Renamed & switched")
+            except Exception as e:
+                st.error("Rename failed.")
+                st.exception(e)
+        else:
+            try:
+                rename_user(sel, new_name)
+                switch_user(new_name, toast="Renamed & switched")
+            except Exception as e:
+                st.error("Rename failed.")
+                st.exception(e)
+
+# быстрый свитч, если пользователь в select изменён
+if sel != current and st.session_state.get("settings_active_user") == sel:
+    switch_user(sel, toast="Switched")
 
 # --- Monthly limits ----------------------------------------------------------
 
 
+def _active_user() -> str:
+    return get_active_user()  # твоя функция
+
+
+# Активные пути: DB как str, limits как Path (без внешних зависимостей)
 def _active_paths() -> tuple[str, Path]:
-    """Берём активные пути из твоего get_active_paths();
-    возвращаем: (db_path как str, limits_path как Path)."""
-    db_p_obj, limits_p_obj = get_active_paths()
-    db_p_str = str(db_p_obj)
-    limits_p = limits_p_obj if isinstance(limits_p_obj, Path) else Path(limits_p_obj)
-    return db_p_str, limits_p
+    user = _active_user()
+    db_path_str = str(get_db_path(user))
+    limits_file = Path("data") / f"{user}_budget_limits.json"
+    return db_path_str, limits_file
 
 
+# Надёжный список категорий (даже если БД пустая)
 def _categories_for_editor(db_path: str) -> list[str]:
-    """Надёжно получаем список категорий из БД.
-    Всегда возвращаем список (даже при ошибках)."""
     try:
         cats = list_categories(db_path=db_path) or []
     except Exception:
         cats = []
-    # базовая подстраховка
     base = {"food", "transport", "groceries", "utilities", "entertainment", "other"}
     return sorted(set(cats) | base)
 
 
+# Ключ месяца
 def _mk(d: date) -> str:
-    """Ключ месяца вида 'YYYY-MM' (используем твою month_key)."""
     return month_key(d)
 
 
+# Чтение/сохранение лимитов JSON
 def _load_limits(mk: str, path: Path) -> dict[str, float]:
-    """Читаем лимиты из JSON-файла; на ошибки реагируем мягко."""
     if not path.exists():
         return {}
     try:
@@ -1032,8 +1031,7 @@ def _load_limits(mk: str, path: Path) -> dict[str, float]:
 
 
 def _save_limits(mk: str, values: dict[str, float], path: Path) -> None:
-    """Сохраняем лимиты для выбранного месяца в JSON-файл."""
-    data = {}
+    data: dict = {}
     if path.exists():
         try:
             data = json.loads(path.read_text(encoding="utf-8")) or {}
@@ -1044,13 +1042,15 @@ def _save_limits(mk: str, values: dict[str, float], path: Path) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+# ---------------- UI ----------------
+
 st.subheader("Monthly limits")
 
-# показываем активные файлы (для уверенности)
-db_path_str, limits_path = _active_paths()
-st.caption(f"DB: {db_path_str} — Limits: {limits_path.name}")
+# Показываем активные файлы
+db_path_str, limits_file = _active_paths()
+st.caption(f"DB: {db_path_str} — Limits: {limits_file.name}")
 
-# 1) Выбор месяца (уникальный key обязателен!)
+# 1) Выбор месяца (уникальный key обязателен)
 month = st.date_input(
     "Month",
     value=date.today().replace(day=1),
@@ -1061,10 +1061,10 @@ mk = _mk(month)
 
 # 2) Загружаем лимиты и категории
 cats = _categories_for_editor(db_path_str)
-limits_now = _load_limits(mk, limits_path)
+limits_now = _load_limits(mk, limits_file)
 
-# 3) Редактор лимитов (по всем категориям)
-st.write(f"User: {get_active_user()} • Month: {mk}")
+# 3) Редактор лимитов
+st.write(f"User: {_active_user()} • Month: {mk}")
 
 values: dict[str, float] = {}
 for cat in cats:
@@ -1076,21 +1076,22 @@ for cat in cats:
         key=f"limit_{mk}_{cat}",  # уникальные ключи на месяц+категорию
     )
 
-# 4) Кнопки управления (Save / Clear) в две колонки
+# 4) Кнопки управления (Save / Clear)
 col1, col2 = st.columns(2)
 with col1:
     if st.button("Save", type="primary", key=f"save_limits_{mk}"):
-        _save_limits(mk, values, limits_path)
+        _save_limits(mk, values, limits_file)
         st.session_state["_flash"] = ("Limits saved", "✅")
         st.cache_data.clear()
         st.rerun()
 
 with col2:
     if st.button("Clear month limits", key=f"clear_limits_{mk}"):
-        _save_limits(mk, {}, limits_path)
+        _save_limits(mk, {}, limits_file)
         st.session_state["_flash"] = ("Limits cleared", "🗑️")
         st.cache_data.clear()
         st.rerun()
+
 
 # --- Import / Export CSV ------------------------------------------------------
 mk = st.session_state.get("current_limits_month", month_key(date.today()))
