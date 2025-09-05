@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Optional, Union, List, Dict
-
 import json
+import re
 import sqlite3
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
 import pandas as pd
 
 # Если у вас уже есть DATA_DIR в utils — импортируйте оттуда.
 # from utils import DATA_DIR
 DATA_DIR = Path("data")
+
+# Стартовый набор категорий для новых профилей
+DEFAULT_CATEGORIES: list[str] = [
+    "food",
+    "transport",
+    "groceries",
+    "utilities",
+    "entertainment",
+    "other",
+]
 
 # Универсальный тип для путей
 PathLike = Union[str, Path]
@@ -39,6 +50,25 @@ def ensure_db(db_path: PathLike) -> None:
         conn.executescript(SCHEMA_SQL)
 
 
+def ensure_limits_file(limits_path: Path, seed: list[str] | None = None) -> None:
+    """
+    Создаёт JSON лимитов, если его ещё нет. Инициализирует нулевыми значениями по seed-категориям.
+    Структура:
+    {
+      "limits": { "food": 0, ... },
+      "months": { "YYYY-MM": { ... } }   # если в будущем захотите помесячно
+    }
+    """
+    if limits_path.exists():
+        return
+    limits_path.parent.mkdir(parents=True, exist_ok=True)
+    cats = seed or DEFAULT_CATEGORIES
+    payload = {"limits": {c: 0 for c in cats}, "months": {}}
+    limits_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
 # ---- Резолверы путей -------------------------------------------------------
 
 
@@ -64,6 +94,18 @@ def _resolve_db_path(db_path: Optional[PathLike] = None) -> str:
     return get_db_path(user)
 
 
+def _limits_path_for_db(db_path: PathLike) -> Path:
+    """
+    По пути БД data/<user>_expenses.db -> вернуть Path для лимитов: data/<user>_budget_limits.json.
+    Именование выдержано по текущей конвенции проекта.
+    """
+    p = Path(_resolve_db_path(db_path))
+    # извлечём <user> из "<user>_expenses.db"
+    m = re.match(r"(.+?)_expenses\.db$", p.name)
+    user = m.group(1) if m else "default"
+    return DATA_DIR / f"{user}_budget_limits.json"
+
+
 # ---- Соединение и справочные функции --------------------------------------
 
 
@@ -75,14 +117,38 @@ def get_conn(db_path: Optional[PathLike] = None):
 
 
 def list_categories(db_path: Optional[PathLike] = None) -> List[str]:
-    """Список уникальных категорий расходов (для меню/фильтров)."""
+    """
+    Возвращает список категорий пользователя:
+    объединение ключей из лимитов и уникальных категорий из таблицы expenses.
+    Гарантирует существование файла лимитов для нового профиля.
+    """
     path = _resolve_db_path(db_path)
     ensure_db(path)
-    with sqlite3.connect(path) as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT category FROM expenses ORDER BY category"
-        ).fetchall()
-    return [r[0] for r in rows]
+
+    # 1) категории из БД
+    db_cats: set[str] = set()
+    try:
+        with sqlite3.connect(path) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT category FROM expenses WHERE category IS NOT NULL AND TRIM(category) <> ''"
+            ).fetchall()
+            db_cats.update(str(r[0]).strip() for r in rows if r and r[0])
+    except Exception:
+        pass
+
+    # 2) категории из лимитов (создадим файл при необходимости)
+    lim_path = _limits_path_for_db(path)
+    ensure_limits_file(lim_path)  # ← важный шаг — создаст JSON с базовыми категориями
+    limit_cats: set[str] = set()
+    try:
+        data = json.loads(lim_path.read_text(encoding="utf-8"))
+        base = data.get("limits", {}) or {}
+        limit_cats.update(k.strip() for k in base.keys() if k and str(k).strip())
+    except Exception:
+        pass
+
+    cats = sorted((db_cats | limit_cats) - {""})
+    return cats
 
 
 # ---- CRUD / выборки --------------------------------------------------------
