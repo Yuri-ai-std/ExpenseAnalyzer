@@ -1,0 +1,11 @@
+{
+  "limits": {
+    "food": 0,
+    "transport": 0,
+    "groceries": 0,
+    "utilities": 0,
+    "entertainment": 0,
+    "other": 0
+  },
+  "months": {}
+}
