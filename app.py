@@ -12,7 +12,15 @@ import pandas as pd
 import streamlit as st
 from pyparsing import cast
 
-from db import add_expense, ensure_db, get_db_path, get_expenses_df, list_categories
+from db import (
+    _limits_path_for_db,
+    add_expense,
+    ensure_db,
+    ensure_limits_file,
+    get_db_path,
+    get_expenses_df,
+    list_categories,
+)
 
 # CSV/аудит для лимитов
 from limits_tools import (
@@ -41,6 +49,14 @@ current_user = st.session_state["current_user"]
 ACTIVE_DB_PATH = db_path_for(current_user)  # data/default_expenses.db
 ACTIVE_LIMITS_PATH = limits_path_for(current_user)  # data/default/budget_limits.json
 DATA_DIR = Path("data")
+BASE_CATEGORIES = [
+    "entertainment",
+    "food",
+    "groceries",
+    "other",
+    "transport",
+    "utilities",
+]
 
 # делаем пути видимыми для других модулей через session_state
 st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH
@@ -208,18 +224,18 @@ print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m
 
 # ===== Вспомогательные функции =====
 @st.cache_data(ttl=10, show_spinner=False)
-def load_df(start: str | None = None, end: str | None = None) -> pd.DataFrame:
-    """Загружает операции из БД активного пользователя как DataFrame."""
+def load_df(
+    start: str | None = None, end: str | None = None, _ver: int = 0
+) -> pd.DataFrame:
+    """Загружает операции из БД активного пользователя как DataFrame.
+    Параметр _ver нужен только для инвалидации кэша."""
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(
-        db_path=db_path, start_date=start, end_date=end
-    )  # ✅ фильтр по датам
-
+    df = get_expenses_df(db_path=db_path, start_date=start, end_date=end)
+    # ↓ ваш существующий код нормализации колонок
     expected = ["date", "category", "amount", "description"]
     for col in expected:
         if col not in df.columns:
             df[col] = pd.NA
-
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
     return df.dropna(subset=["date", "amount"])
@@ -258,8 +274,8 @@ def _fetch_categories() -> list[str]:
     # 1) если есть list_categories в db.py — используйте его
     try:
         from db import (
-            list_categories as _list_categories,  # локальный импорт на случай отсутствия
-        )
+            list_categories as _list_categories,
+        )  # локальный импорт на случай отсутствия
 
         cats = _list_categories()
         if cats:
@@ -278,37 +294,32 @@ def _fetch_categories() -> list[str]:
     return ["food", "transport", "health", "entertainment", "other"]
 
 
-# ====== Add Expense: хелперы ключей (вставить один раз выше по файлу) ======
-
-
-def _add_form_suffix() -> str:
-    """Суффикс для ключей формы — по активному пользователю."""
-    return st.session_state.get("current_user", "default")
-
-
-def add_form_keys() -> dict[str, str]:
-    """Единое место, где объявлены ВСЕ ключи формы Add Expense."""
-    sfx = _add_form_suffix()
+# ===== Add Expense: helpers (keys & soft reset) =====
+def add_form_keys(user: str) -> dict[str, str]:
+    """Единое место для всех ключей формы Add Expense (зависят от user)."""
+    prefix = f"add_{(user or 'default')}_"
     return {
-        "mode": f"add_cat_mode_{sfx}",
-        "choose": f"add_cat_choose_{sfx}",
-        "new": f"add_cat_new_{sfx}",
-        "date": f"add_date_{sfx}",
-        "amount": f"add_amount_{sfx}",
-        "note": f"add_note_{sfx}",
-        "reset": f"add_form_reset_{sfx}",  # внутренний флажок мягкого сброса
+        "mode": f"{prefix}cat_mode",
+        "choose": f"{prefix}cat_choose",
+        "new": f"{prefix}cat_new",
+        "date": f"{prefix}date",
+        "amount": f"{prefix}amount",
+        "note": f"{prefix}note",
+        "reset": f"{prefix}form_reset",  # внутренний флаг мягкого сброса
     }
 
 
-def add_form_soft_reset() -> None:
-    """Мягкий сброс значений ДО инстанса виджетов."""
-    k = add_form_keys()
-    if st.session_state.pop(k["reset"], False):
-        st.session_state.pop(k["choose"], None)
-        st.session_state.pop(k["new"], None)
-        st.session_state.pop(k["amount"], None)
-        st.session_state.pop(k["note"], None)
-        st.session_state.pop(k["mode"], None)
+def add_form_soft_reset(keys: dict[str, str]) -> None:
+    """Мягкий сброс значений ДО инстанса виджетов (на новом рендере)."""
+    if st.session_state.pop(keys["reset"], False):
+        for name in ("choose", "new", "date", "amount", "note", "mode"):
+            st.session_state.pop(keys[name], None)
+
+
+# ==== Data refresh helpers ====
+def bump_data_version() -> None:
+    """Увеличивает версию данных, чтобы принудительно обновить кэш загрузки таблиц."""
+    st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
 
 
 # --- Меню ---
@@ -410,7 +421,7 @@ if choice == "Dashboard":
     )
     st.bar_chart(cat_totals, use_container_width=True)
 
-# ======================= Add Expense =======================
+# ==================== Add Expense ====================
 elif choice == "Add Expense":
     st.title(msgs.get("add_expense", "Add Expense"))
 
@@ -419,111 +430,132 @@ elif choice == "Add Expense":
     db_path = get_db_path(user)
     ensure_db(db_path)
 
-    # категории (объединённый список из БД и лимитов)
+    # ---- «мягкий» сброс формы, если нужно ----
+    keys = add_form_keys(user)  # user = get_active_user() у вас выше
+    add_form_soft_reset(keys)  # мягкий сброс ПЕРЕД созданием виджетов
+
+    # ---- категории (объединённый список) ----
     cats = list_categories(db_path=db_path)
+    cats = sorted(set(cats) | set(BASE_CATEGORIES))  # устойчиво к «пустым» профилям
 
-    # ключи формы + мягкий сброс (ВАЖНО вызвать до виджетов!)
-    keys = add_form_keys()
-    add_form_soft_reset()
+    # (опционально) отладочный префикс
+    st.caption(f"DBG ➜ user={user} | db={db_path} | cats={cats!r}")
 
-    # (необязательно) отладочный префикс
-    from pathlib import Path
+    # ---- единая форма ----
+    with st.form(f"add_form_{user}", clear_on_submit=True):
+        # дата
+        d = st.date_input("Date", value=date.today(), key=keys["date"])
 
-    db_name = Path(db_path).name if db_path else str(db_path)
-    st.caption(f"DBG ➜ user={user} | db={db_name} | cats={cats!r}")
-
-    # ---------- форма ввода ----------
-    with st.form("add_expense_form", clear_on_submit=False):
-        d = st.date_input(
-            msgs.get("date", "Date"),
-            value=date.today(),
-            format="YYYY/MM/DD",
-            key=keys["date"],
-        )
+        # режим: choose / new  (для новых пользователей — только new)
+        has_categories = len(cats) > 0
+        default_mode = "choose" if has_categories else "new"
 
         mode = st.radio(
             msgs.get("category", "Category"),
             options=["choose", "new"],
-            index=0 if cats else 1,
+            index=0 if default_mode == "choose" else 1,
             horizontal=True,
             captions=[
                 msgs.get("choose_existing", "Choose existing"),
                 msgs.get("enter_new", "Enter new"),
             ],
             key=keys["mode"],
+            disabled=not has_categories,  # у новых юзеров только new
         )
 
-        if mode == "choose":
+        # поле категории
+        if mode == "choose" and has_categories:
+            # выберем 0-й элемент, чтобы поле не выглядело «пустым» после сабмита
+            cat_index = 0
+            if st.session_state.get(keys["choose"]) in cats:
+                # если пользователь что-то выбирал раньше, сохраним это
+                try:
+                    cat_index = cats.index(st.session_state[keys["choose"]])
+                except ValueError:
+                    cat_index = 0
+
             cat_val = st.selectbox(
                 msgs.get("choose_category", "Choose category"),
                 options=cats,
-                index=None,
-                placeholder=msgs.get("choose_placeholder", "Choose an option"),
+                index=cat_index,  # ← вместо index=None + placeholder
                 key=keys["choose"],
             )
         else:
             cat_val = st.text_input(
                 msgs.get("new_category", "New category"),
                 key=keys["new"],
+                placeholder=msgs.get("new_category", "New category"),
             )
 
-        amount = st.number_input(
+        # сумма
+        amt = st.number_input(
             msgs.get("amount", "Amount"),
             min_value=0.0,
-            step=0.01,
+            step=0.01,  # удобный денежный шаг
             format="%.2f",
             key=keys["amount"],
         )
 
+        # описание (опционально)
         note = st.text_area(
             msgs.get("description", "Description"),
             key=keys["note"],
+            placeholder=msgs.get("description", "Description"),
         )
 
-        submit = st.form_submit_button(msgs.get("submit", "Submit"))
+        # submit (ОБЯЗАТЕЛЬНО внутри формы)
+        submitted = st.form_submit_button(msgs.get("submit", "Submit"))
 
-    # ---------- обработка сабмита ----------
-    if submit:
+    # ---- обработка сабмита ----
+    if submitted:
         has_error = False
 
-        # валидация категории
+        # 1) категория
         cat_val = (cat_val or "").strip()
         if not cat_val:
             st.error(msgs.get("error_category", "Please enter / choose a category."))
             has_error = True
 
-        # валидация суммы
-        try:
-            amt_f = float(amount)
-            if amt_f <= 0:
-                raise ValueError
-        except Exception:
+        # 2) сумма
+        if float(amt) <= 0:
             st.error(msgs.get("error_amount", "Amount must be greater than zero."))
             has_error = True
 
+        # 3) описание (может быть пустым)
+        note = (note or "").strip()
+
+        # 4) сохранение
         if not has_error:
             try:
                 add_expense(
                     date=str(d),
-                    category=cat_val,  # <-- cat_val_s НЕ используем
-                    amount=amt_f,
-                    description=(note or "").strip(),
+                    category=cat_val,
+                    amount=float(amt),
+                    description=note,
                     db_path=db_path,
                 )
-                # флеш-тост + плановый мягкий сброс на следующем рендере
+
+                # флэш-тост + мягкий перерендер
                 st.session_state["_flash"] = (
                     msgs.get("expense_added", "Expense added successfully!"),
                     "✅",
                 )
-                st.session_state[keys["reset"]] = True
 
-                st.cache_data.clear()
+                # мягкий сброс значений формы перед следующим рендером
+                st.session_state[keys["reset"]] = True
+                bump_data_version()  # инвалидация кэша таблицы/загрузчика
                 st.rerun()
 
             except Exception as ex:
                 st.error(msgs.get("save_error", "Could not save expense."))
                 st.exception(ex)
 
+    # ---- таблица с расходами ----
+    ver = st.session_state.get("data_version", 0)
+    df = load_df(start=None, end=None, _ver=ver)
+    st.dataframe(df, use_container_width=True)
+
+# ================= Browse & Filter =================
 elif choice == "Browse & Filter":
     st.title(msgs.get("browse_filter", "Browse & Filter"))
 
