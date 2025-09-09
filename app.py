@@ -5,12 +5,12 @@ from datetime import date as _date
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict
+from types import SimpleNamespace
+from typing import Any, Dict, cast
 
 import altair as alt
 import pandas as pd
 import streamlit as st
-from pyparsing import cast
 
 from db import (
     _limits_path_for_db,
@@ -31,7 +31,7 @@ from limits_tools import (
     get_audit,
     limits_to_csv_bytes,
 )
-from messages import messages
+from messages import t
 from utils import (
     db_path_for,
     limits_path_for,
@@ -39,6 +39,9 @@ from utils import (
     month_key,
     save_monthly_limits,
 )
+
+# Обход старых type-stubs streamlit для параметра width="stretch"
+st_any = cast(Any, st)
 
 # --- aliases for tests (test_limits_io.py expects underscored names)
 _limits_to_csv_bytes = limits_to_csv_bytes
@@ -252,11 +255,9 @@ def get_categories() -> list[str]:
         return []
 
 
-# --- Устанавливаем язык интерфейса ---
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "en"
+# ---- язык интерфейса ----
+st.session_state.setdefault("lang", "en")
 lang = st.session_state["lang"]
-msgs = messages[lang]
 
 # 👉 Определяем активного пользователя (default при старте)
 current_user = st.session_state.get("current_user", "default")
@@ -294,31 +295,44 @@ def _fetch_categories() -> list[str]:
     return ["food", "transport", "health", "entertainment", "other"]
 
 
-# ===== Add Expense: helpers (keys & soft reset) =====
-def add_form_keys(user: str) -> dict[str, str]:
-    """Единое место для всех ключей формы Add Expense (зависят от user)."""
-    prefix = f"add_{(user or 'default')}_"
+# ===== Add Expense: helpers =====
+
+
+def add_form_keys(user: str | None = None) -> dict[str, str]:
+    sfx = user or st.session_state.get("current_user", "default")
     return {
-        "mode": f"{prefix}cat_mode",
-        "choose": f"{prefix}cat_choose",
-        "new": f"{prefix}cat_new",
-        "date": f"{prefix}date",
-        "amount": f"{prefix}amount",
-        "note": f"{prefix}note",
-        "reset": f"{prefix}form_reset",  # внутренний флаг мягкого сброса
+        "mode": f"add_cat_mode_{sfx}",
+        "choose": f"add_cat_choose_{sfx}",
+        "new": f"add_cat_new_{sfx}",
+        "date": f"add_date_{sfx}",
+        "amount": f"add_amount_{sfx}",
+        "note": f"add_note_{sfx}",
+        "reset": f"add_form_reset_{sfx}",  # флаг сброса
     }
 
 
-def add_form_soft_reset(keys: dict[str, str]) -> None:
-    """Мягкий сброс значений ДО инстанса виджетов (на новом рендере)."""
-    if st.session_state.pop(keys["reset"], False):
-        for name in ("choose", "new", "date", "amount", "note", "mode"):
-            st.session_state.pop(keys[name], None)
+# ---- запросить сброс (ставим только флажок!) ----
+def request_form_reset(keys: dict[str, str]) -> None:
+    st.session_state[keys["reset"]] = True
 
 
-# ==== Data refresh helpers ====
+# ---- применить сброс (реально чистим значения) ----
+
+
+def apply_form_reset(keys: dict[str, str]) -> None:
+    ss = st.session_state
+    if ss.pop(keys["reset"], False):
+        # НЕ трогаем режим:
+        # ss[keys["mode"]] оставляем как есть
+        ss[keys["choose"]] = None
+        ss[keys["new"]] = ""
+        ss[keys["amount"]] = 0.0
+        ss[keys["note"]] = ""
+        ss[keys["date"]] = ss.get(keys["date"], _date.today())
+
+
 def bump_data_version() -> None:
-    """Увеличивает версию данных, чтобы принудительно обновить кэш загрузки таблиц."""
+    """Инкремент версии данных, чтобы инвалидировать кэш загрузчиков таблиц."""
     st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
 
 
@@ -327,7 +341,7 @@ menu = ["Dashboard", "Add Expense", "Browse & Filter", "Charts", "Settings"]
 choice = st.sidebar.radio("Menu", menu)
 
 if choice == "Dashboard":
-    st.title(msgs.get("dashboard", "Dashboard"))
+    st.title(t("dashboard", lang, default="Dashboard"))
 
     today = date.today()
     month_start = today.replace(day=1)
@@ -370,7 +384,13 @@ if choice == "Dashboard":
     # ----- Данные -----
     raw_df = load_df(start_s, end_s)
     if raw_df.empty:
-        st.info(msgs.get("no_expenses_found", "No expenses found for selected period."))
+        st.info(
+            t(
+                "no_expenses_found",
+                lang,
+                default="No expenses found for selected period.",
+            )
+        )
         st.stop()
 
     # Очистка и сортировка через хелпер
@@ -421,149 +441,128 @@ if choice == "Dashboard":
     )
     st.bar_chart(cat_totals, use_container_width=True)
 
-# ==================== Add Expense ====================
+# =================== Add Expense ===================
 elif choice == "Add Expense":
-    st.title(msgs.get("add_expense", "Add Expense"))
+    st.title(t("add_expense", lang, default="Add Expense"))
 
     # ---- активный пользователь и БД ----
     user = get_active_user()
     db_path = get_db_path(user)
     ensure_db(db_path)
 
-    # ---- «мягкий» сброс формы, если нужно ----
-    keys = add_form_keys(user)  # user = get_active_user() у вас выше
-    add_form_soft_reset(keys)  # мягкий сброс ПЕРЕД созданием виджетов
+    # ---- категории ----
+    cats = sorted(set(list_categories(db_path=db_path)) | set(BASE_CATEGORIES))
+    st.caption(f"DBG ➜ user={user!s} | db={db_path!s} | cats={cats!r}")
 
-    # ---- категории (объединённый список) ----
-    cats = list_categories(db_path=db_path)
-    cats = sorted(set(cats) | set(BASE_CATEGORIES))  # устойчиво к «пустым» профилям
+    # ---- ключи + мягкий сброс (если надо) ----
+    keys = add_form_keys(user)
+    ss = st.session_state
 
-    # (опционально) отладочный префикс
-    st.caption(f"DBG ➜ user={user} | db={db_path} | cats={cats!r}")
+    # мягко очищаем поля формы ТОЛЬКО если поднят флаг reset
+    apply_form_reset(keys)
+
+    # гарантируем стартовую дату до виджетов
+    if keys["date"] not in ss:
+        ss[keys["date"]] = _date.today()
+
+    # ---- переключатель режима: choose / new ----
+    def _on_mode_change() -> None:
+        # мягкий сброс полей формы — только ставим флаг
+        request_form_reset(keys)
+        ss["_flash"] = ("Mode switched", "🔁")
+        # st.rerun() НЕ нужен внутри on_change — Streamlit сам перерендерит
+
+    st.segmented_control(
+        label=t("category", lang, default="Category"),
+        options=["choose", "new"],
+        format_func=lambda m: (
+            t("choose_existing", lang, default="Choose existing")
+            if m == "choose"
+            else t("enter_new", lang, default="Enter new")
+        ),
+        key=keys["mode"],
+        on_change=_on_mode_change,
+    )
 
     # ---- единая форма ----
-    with st.form(f"add_form_{user}", clear_on_submit=True):
-        # дата
-        d = st.date_input("Date", value=date.today(), key=keys["date"])
+    with st.form(f"add_form_{user}", clear_on_submit=False):
+        d = st.date_input(t("date", lang, default="Date"), key=keys["date"])
 
-        # режим: choose / new  (для новых пользователей — только new)
-        has_categories = len(cats) > 0
-        default_mode = "choose" if has_categories else "new"
-
-        mode = st.radio(
-            msgs.get("category", "Category"),
-            options=["choose", "new"],
-            index=0 if default_mode == "choose" else 1,
-            horizontal=True,
-            captions=[
-                msgs.get("choose_existing", "Choose existing"),
-                msgs.get("enter_new", "Enter new"),
-            ],
-            key=keys["mode"],
-            disabled=not has_categories,  # у новых юзеров только new
-        )
-
-        # поле категории
-        if mode == "choose" and has_categories:
-            # выберем 0-й элемент, чтобы поле не выглядело «пустым» после сабмита
-            cat_index = 0
-            if st.session_state.get(keys["choose"]) in cats:
-                # если пользователь что-то выбирал раньше, сохраним это
-                try:
-                    cat_index = cats.index(st.session_state[keys["choose"]])
-                except ValueError:
-                    cat_index = 0
-
+        mode = ss.get(keys["mode"], "choose")
+        if mode == "choose":
             cat_val = st.selectbox(
-                msgs.get("choose_category", "Choose category"),
-                options=cats,
-                index=cat_index,  # ← вместо index=None + placeholder
+                t("choose_category", lang, default="Choose category"),
+                options=sorted(cats),
+                index=0 if cats else None,
                 key=keys["choose"],
             )
+            new_val = ""
         else:
-            cat_val = st.text_input(
-                msgs.get("new_category", "New category"),
+            new_val = st.text_input(
+                t("new_category", lang, default="New category"),
                 key=keys["new"],
-                placeholder=msgs.get("new_category", "New category"),
             )
+            cat_val = None
 
-        # сумма
         amt = st.number_input(
-            msgs.get("amount", "Amount"),
+            t("amount", lang, default="Amount"),
             min_value=0.0,
-            step=0.01,  # удобный денежный шаг
-            format="%.2f",
+            step=1.0,
             key=keys["amount"],
         )
 
-        # описание (опционально)
         note = st.text_area(
-            msgs.get("description", "Description"),
+            t("description", lang, default="Description"),
             key=keys["note"],
-            placeholder=msgs.get("description", "Description"),
         )
 
-        # submit (ОБЯЗАТЕЛЬНО внутри формы)
-        submitted = st.form_submit_button(msgs.get("submit", "Submit"))
+        submit = st.form_submit_button(t("submit", lang, default="Submit"))
 
-    # ---- обработка сабмита ----
-    if submitted:
-        has_error = False
+    # ---- обработка submit ----
+    if submit:
+        chosen_cat = (
+            (new_val or "").strip() if mode == "new" else (cat_val or "").strip()
+        )
+        errors = []
+        if not chosen_cat:
+            errors.append("Please enter / choose a category.")
+        if amt <= 0:
+            errors.append("Amount must be greater than zero.")
 
-        # 1) категория
-        cat_val = (cat_val or "").strip()
-        if not cat_val:
-            st.error(msgs.get("error_category", "Please enter / choose a category."))
-            has_error = True
-
-        # 2) сумма
-        if float(amt) <= 0:
-            st.error(msgs.get("error_amount", "Amount must be greater than zero."))
-            has_error = True
-
-        # 3) описание (может быть пустым)
-        note = (note or "").strip()
-
-        # 4) сохранение
-        if not has_error:
+        if errors:
+            for e in errors:
+                st.error(e)
+        else:
             try:
                 add_expense(
-                    date=str(d),
-                    category=cat_val,
-                    amount=float(amt),
-                    description=note,
                     db_path=db_path,
+                    date=d.isoformat(),  # <-- ВАЖНО: дата строкой
+                    category=chosen_cat,
+                    amount=float(amt),
+                    description=(note or "").strip(),
                 )
+            except Exception as e:
+                st.error(f"Could not save expense. {e}")
+            else:
+                # успех: попросим сброс на следующий рендер
+                request_form_reset(keys)
+                ss["_flash"] = ("Expense added successfully!", "✅")
+                bump_data_version()
+                st.rerun()  # сразу показать очищенную форму и тост
 
-                # флэш-тост + мягкий перерендер
-                st.session_state["_flash"] = (
-                    msgs.get("expense_added", "Expense added successfully!"),
-                    "✅",
-                )
-
-                # мягкий сброс значений формы перед следующим рендером
-                st.session_state[keys["reset"]] = True
-                bump_data_version()  # инвалидация кэша таблицы/загрузчика
-                st.rerun()
-
-            except Exception as ex:
-                st.error(msgs.get("save_error", "Could not save expense."))
-                st.exception(ex)
-
-    # ---- таблица с расходами ----
-    ver = st.session_state.get("data_version", 0)
-    df = load_df(start=None, end=None, _ver=ver)
-    st.dataframe(df, use_container_width=True)
+    # ---- таблица последних записей (как было у вас) ----
+    df = get_expenses_df(db_path=db_path)
+    st.dataframe(df.tail(10), width="stretch")
 
 # ================= Browse & Filter =================
 elif choice == "Browse & Filter":
-    st.title(msgs.get("browse_filter", "Browse & Filter"))
+    st.title(t("browse_filter", lang, default="Browse & Filter"))
 
     # Загружаем все данные
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
     base_df = get_expenses_df(db_path=db_path)
     if base_df.empty:
-        st.info(msgs.get("no_expenses_found", "No expenses found."))
+        st.info(t("no_expenses_found", lang, default="No expenses found."))
         st.stop()
 
     df = base_df.copy()
@@ -619,8 +618,8 @@ elif choice == "Browse & Filter":
             )
 
         fcol1, fcol2 = st.columns([1, 1])
-        run = fcol1.form_submit_button(msgs.get("apply", "Apply"))
-        reset = fcol2.form_submit_button(msgs.get("reset", "Reset"))
+        run = fcol1.form_submit_button(t("apply", lang, default="Apply"))
+        reset = fcol2.form_submit_button(t("reset", lang, default="Reset"))
 
     if reset:
         st.cache_data.clear()
@@ -638,18 +637,22 @@ elif choice == "Browse & Filter":
 
     if f.empty:
         st.warning(
-            msgs.get("no_expenses_found", "No expenses found for selected filters.")
+            t(
+                "no_expenses_found",
+                lang,
+                default="No expenses found for selected filters.",
+            )
         )
         st.stop()
 
     # --- KPI ---
     k1, k2, k3 = st.columns(3)
     with k1:
-        st.metric(msgs.get("total", "Total"), f"{f['amount'].sum():.2f}")
+        st.metric(t("total", lang, default="Total"), f"{f['amount'].sum():.2f}")
     with k2:
-        st.metric(msgs.get("operations", "Operations"), len(f))
+        st.metric(t("operations", lang, default="Operations"), len(f))
     with k3:
-        st.metric(msgs.get("average", "Average"), f"{f['amount'].mean():.2f}")
+        st.metric(t("average", lang, default="Average"), f"{f['amount'].mean():.2f}")
 
     st.divider()
 
@@ -711,27 +714,35 @@ elif choice == "Browse & Filter":
 
 
 elif choice == "Charts":
-    st.title(msgs.get("charts", "Charts"))
+    st.title(t("charts", lang, default="Charts"))
 
     # ---- Контроли периода ----
     colp1, colp2, colp3 = st.columns([1.4, 1.4, 1])
 
     start_c = colp1.date_input(
-        msgs.get("start", "Start"),
+        t("start", lang, default="Start"),
         value=_date(_date.today().year, _date.today().month, 1),
         key="charts_start",  # уникальный ключ
     )
 
     end_c = colp2.date_input(
-        msgs.get("end", "End"), value=_date.today(), key="charts_end"  # уникальный ключ
+        t("end", lang, default="End"),
+        value=_date.today(),
+        key="charts_end",  # уникальный ключ
     )
 
-    apply_c = colp3.button(msgs.get("apply", "Apply"), width="stretch")
+    apply_c = colp3.button(t("apply", lang, default="Apply"), width="stretch")
 
     # Грузим данные по периоду
     df_raw = load_df(str(start_c), str(end_c)) if apply_c or True else load_df()
     if df_raw.empty:
-        st.info(msgs.get("no_expenses_found", "No expenses found for selected period."))
+        st.info(
+            t(
+                "no_expenses_found",
+                lang,
+                default="No expenses found for selected period.",
+            )
+        )
         st.stop()
 
     # Очищаем/нормализуем и удаляем возможные дубликаты показа
@@ -740,14 +751,20 @@ elif choice == "Charts":
     # ---- Быстрые фильтры по категориям ----
     cats_all = sorted(df["category"].astype(str).unique().tolist())
     sel_cats = st.multiselect(
-        msgs.get("category", "Category"),
+        t("category", lang, default="Category"),
         options=cats_all,
         default=cats_all,
     )
     if sel_cats:
         df = df[df["category"].isin(sel_cats)]
     if df.empty:
-        st.info(msgs.get("no_expenses_found", "No expenses found for selected period."))
+        st.info(
+            t(
+                "no_expenses_found",
+                lang,
+                default="No expenses found for selected period.",
+            )
+        )
         st.stop()
 
     st.divider()
@@ -755,7 +772,7 @@ elif choice == "Charts":
     # =========================
     #  A) Бар-чарт по категориям
     # =========================
-    st.subheader(msgs.get("by_category", "By category"))
+    st.subheader(t("by_category", lang, default="By category"))
     cat_sum = (
         df.groupby("category", as_index=False)
         .agg(amount=("amount", "sum"))  # <- получаем DataFrame с колонкой amount
@@ -768,11 +785,17 @@ elif choice == "Charts":
         alt.Chart(cat_sum)
         .mark_bar()
         .encode(
-            x=alt.X("category:N", title=msgs.get("category", "Category"), sort="-y"),
-            y=alt.Y("amount:Q", title=msgs.get("total", "Total")),
+            x=alt.X(
+                "category:N", title=t("category", lang, default="Category"), sort="-y"
+            ),
+            y=alt.Y("amount:Q", title=t("total", lang, default="Total")),
             tooltip=[
-                alt.Tooltip("category:N", title=msgs.get("category", "Category")),
-                alt.Tooltip("amount:Q", title=msgs.get("total", "Total"), format=".2f"),
+                alt.Tooltip(
+                    "category:N", title=t("category", lang, default="Category")
+                ),
+                alt.Tooltip(
+                    "amount:Q", title=t("total", lang, default="Total"), format=".2f"
+                ),
             ],
         )
         .properties(height=360)
@@ -782,7 +805,7 @@ elif choice == "Charts":
     # =========================
     #  B) Линия: динамика по датам
     # =========================
-    st.subheader(msgs.get("by_date", "By date"))
+    st.subheader(t("by_date", lang, default="By date"))
     daily = (
         df.groupby("date", as_index=False)
         .agg(amount=("amount", "sum"))  # DataFrame
@@ -793,11 +816,13 @@ elif choice == "Charts":
         alt.Chart(daily)
         .mark_line(point=True)
         .encode(
-            x=alt.X("date:T", title=msgs.get("date", "Date")),
-            y=alt.Y("amount:Q", title=msgs.get("total", "Total")),
+            x=alt.X("date:T", title=t("date", lang, default="Date")),
+            y=alt.Y("amount:Q", title=t("total", lang, default="Total")),
             tooltip=[
-                alt.Tooltip("date:T", title=msgs.get("date", "Date")),
-                alt.Tooltip("amount:Q", title=msgs.get("total", "Total"), format=".2f"),
+                alt.Tooltip("date:T", title=t("date", lang, default="Date")),
+                alt.Tooltip(
+                    "amount:Q", title=t("total", lang, default="Total"), format=".2f"
+                ),
             ],
         )
         .properties(height=360)
@@ -807,7 +832,7 @@ elif choice == "Charts":
     # =========================
     #  C) (опционально) Pie-chart
     # =========================
-    with st.expander(msgs.get("share_by_category", "Share by category (pie)")):
+    with st.expander(t("share_by_category", lang, default="Share by category (pie)")):
         share = cat_sum.copy()
         total_sum = float(share["amount"].sum()) or 1.0
         share["share"] = share["amount"] / total_sum
@@ -819,15 +844,19 @@ elif choice == "Charts":
                 theta=alt.Theta("amount:Q"),
                 color=alt.Color(
                     "category:N",
-                    legend=alt.Legend(title=msgs.get("category", "Category")),
+                    legend=alt.Legend(title=t("category", lang, default="Category")),
                 ),
                 tooltip=[
-                    alt.Tooltip("category:N", title=msgs.get("category", "Category")),
                     alt.Tooltip(
-                        "amount:Q", title=msgs.get("total", "Total"), format=",.2f"
+                        "category:N", title=t("category", lang, default="Category")
                     ),
                     alt.Tooltip(
-                        "share:Q", title=msgs.get("share", "Share"), format=".1%"
+                        "amount:Q",
+                        title=t("total", lang, default="Total"),
+                        format=",.2f",
+                    ),
+                    alt.Tooltip(
+                        "share:Q", title=t("share", lang, default="Share"), format=".1%"
                     ),
                 ],
             )
@@ -838,36 +867,40 @@ elif choice == "Charts":
     # =========================
     #  D) Показ таблицы (без дублей)
     # =========================
-    with st.expander(msgs.get("show_table", "Show data")):
+    with st.expander(t("show_table", lang, default="Show data")):
         st.dataframe(
             (df.sort_values("date", ascending=False)).reset_index(drop=True),
             width="stretch",
             hide_index=True,
             column_config={
                 "amount": st.column_config.NumberColumn(
-                    msgs.get("amount", "Amount"), format="%.2f"
+                    t("amount", lang, default="Amount"), format="%.2f"
                 ),
                 "date": st.column_config.DatetimeColumn(
-                    msgs.get("date", "Date"), format="YYYY-MM-DD"
+                    t("date", lang, default="Date"), format="YYYY-MM-DD"
                 ),
             },
         )
 
 
 elif choice == "Settings":
-    st.title(msgs.get("settings", "Settings"))
+    st.title(t("settings", lang, default="Settings"))
 
-    # ---- язык интерфейса ----
+    # текущий язык из session_state (по умолчанию en)
+    current_lang = st.session_state.get("lang", "en")
+
+    # селектор языка
     lang = st.selectbox(
         "Language",
-        options=["en", "fr", "es"],
-        index=["en", "fr", "es"].index(st.session_state.get("lang", "en")),
+        ["en", "fr", "es"],
+        index=["en", "fr", "es"].index(current_lang),
         help="UI language",
     )
-    st.session_state["lang"] = lang
-    msgs = messages[lang]
 
-    st.divider()
+    # сохраняем только если изменили
+    if lang != current_lang:
+        st.session_state["lang"] = lang
+        st.toast(t("language_switched", lang, default="Language switched"))
 
 # =================== /User / Profile ===================
 
@@ -1138,21 +1171,21 @@ exp_col1, exp_col2 = st.columns(2)
 with exp_col1:
     csv_bytes = limits_to_csv_bytes(current_limits)
     st.download_button(
-        label=msgs.get("download_csv", "Download CSV"),
+        label=t("download_csv", lang, default="Download CSV"),
         data=csv_bytes,
         file_name=f"{current_user}_{mk}_limits.csv",
         mime="text/csv",
         key=f"dl_limits_csv_{current_user}_{mk}",
-        help=msgs.get("download_csv", "Download CSV"),
+        help=t("download_csv", lang, default="Download CSV"),
     )
 
 # --- Import CSV
 with exp_col2:
     up = st.file_uploader(
-        msgs.get("upload_csv", "Upload CSV"),
+        t("upload_csv", lang, default="Upload CSV"),
         type=["csv"],
         key=f"ul_limits_csv_{current_user}_{mk}",
-        help=msgs.get("upload_csv", "Upload CSV"),
+        help=t("upload_csv", lang, default="Upload CSV"),
     )
 
     if up is not None:
@@ -1168,15 +1201,15 @@ with exp_col2:
             append_audit_row(old=current_limits, new=imported_limits)
 
             # уведомление + мягкий rerun
-            st.session_state["_flash"] = (msgs.get("saved", "Saved!"), "✅")
+            st.session_state["_flash"] = (t("saved", lang, default="Saved!"), "✅")
             st.cache_data.clear()
             st.rerun()
 
         except Exception:
-            st.error(msgs.get("csv_import_failed", "CSV import failed"))
+            st.error(t("csv_import_failed", lang, default="CSV import failed"))
 
 # ---- Change log (session) ----------------------------------------------------
-st.markdown(f"#### {msgs.get('change_log', 'Change log (session)')}")
+st.markdown(f"#### {t("change_log", lang, default="Change log (session)")}")
 
 log_col1, log_col2, log_col3, log_col4 = st.columns(4)
 
@@ -1184,7 +1217,7 @@ audit_data = get_audit()  # список записей аудита за сес
 
 with log_col1:
     st.download_button(
-        label=msgs.get("download_json", "Download JSON"),
+        label=t("download_json", lang, default="Download JSON"),
         data=audit_to_json_bytes(audit_data),
         file_name=f"audit_{current_user}_{mk}.json",
         mime="application/json",
@@ -1193,7 +1226,7 @@ with log_col1:
 
 with log_col2:
     st.download_button(
-        label=msgs.get("download_csv", "Download CSV"),
+        label=t("download_csv", lang, default="Download CSV"),
         data=audit_to_csv_bytes(audit_data),
         file_name=f"audit_{current_user}_{mk}.csv",
         mime="text/csv",
@@ -1202,12 +1235,12 @@ with log_col2:
 
 with log_col4:
     if st.button(
-        msgs.get("clear_audit", "Clear audit"),
+        t("clear_audit", lang, default="Clear audit"),
         key=f"btn_clear_audit_{current_user}_{mk}",
     ):
         st.session_state.setdefault("__limits_audit__", [])
         st.session_state["__limits_audit__"].clear()
-        st.success(msgs.get("cleared", "Cleared!"))
+        st.success(t("cleared", lang, default="Cleared!"))
 
 # 6) Подсказки (3 последних месяца)
 with st.expander("Suggestions (last 3 months)"):
