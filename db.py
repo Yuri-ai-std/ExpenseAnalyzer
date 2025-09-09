@@ -1,146 +1,228 @@
+# db.py — ExpenseAnalyzer (каноника 2025-09-02)
+
 from __future__ import annotations
 
+import json
+import re
 import sqlite3
-from os import PathLike
-from typing import Any, Dict, List, Optional, Union
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 
-from utils import DATA_DIR
+# Если у вас уже есть DATA_DIR в utils — импортируйте оттуда.
+# from utils import DATA_DIR
+DATA_DIR = Path("data")
+
+# Стартовый набор категорий для новых профилей
+DEFAULT_CATEGORIES: list[str] = [
+    "food",
+    "transport",
+    "groceries",
+    "utilities",
+    "entertainment",
+    "other",
+]
+
+# Универсальный тип для путей
+PathLike = Union[str, Path]
+
+# ---- Схема и инициализация БД ---------------------------------------------
+
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS expenses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    category TEXT NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
+CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
+"""
 
 
-# --- Универсальный резолвер пути БД: явный путь > session_state > дефолт ---
-def _resolve_db_path(db_path: Optional[str] = None) -> str:
+def ensure_db(db_path: PathLike) -> None:
+    """Гарантированно создаёт файл БД и таблицы, если их нет."""
+    p = Path(db_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(p) as conn:
+        conn.executescript(SCHEMA_SQL)
+
+
+def ensure_limits_file(limits_path: Path, seed: list[str] | None = None) -> None:
     """
-    Возвращает путь к БД в следующем приоритете:
-    1) явный аргумент db_path, если передан;
-    2) st.session_state['ACTIVE_DB_PATH'] (если streamlit доступен);
-    3) путь по умолчанию для пользователя 'default'.
+    Создаёт JSON лимитов, если его ещё нет. Инициализирует нулевыми значениями по seed-категориям.
+    Структура:
+    {
+      "limits": { "food": 0, ... },
+      "months": { "YYYY-MM": { ... } }   # если в будущем захотите помесячно
+    }
     """
-    if db_path:
-        return db_path
+    if limits_path.exists():
+        return
+    limits_path.parent.mkdir(parents=True, exist_ok=True)
+    cats = seed or DEFAULT_CATEGORIES
+    payload = {"limits": {c: 0 for c in cats}, "months": {}}
+    limits_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+# ---- Резолверы путей -------------------------------------------------------
+
+
+def get_db_path(user: str = "default") -> str:
+    """Путь к БД пользователя в корне data/: data/<user>_expenses.db"""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return str(DATA_DIR / f"{user}_expenses.db")
+
+
+DB_PATH: str = get_db_path("default")  # совместимость со старым кодом/тестами
+
+
+def _resolve_db_path(db_path: Optional[PathLike] = None) -> str:
+    """Возвращает str-путь: явный аргумент > session_state.current_user > default."""
+    if db_path is not None:
+        return str(Path(db_path))
     try:
-        # Локальный импорт, чтобы модуль работал и вне Streamlit (в тестах/скриптах)
-        import streamlit as st  # type: ignore
+        import streamlit as st  # локальный импорт, чтобы не тянуть Streamlit вне приложения
 
-        p = st.session_state.get("ACTIVE_DB_PATH")
-        if p:
-            return str(p)
+        user = st.session_state.get("current_user", "default")
+    except Exception:
+        user = "default"
+    return get_db_path(user)
+
+
+def _limits_path_for_db(db_path: PathLike) -> Path:
+    """
+    По пути БД data/<user>_expenses.db -> вернуть Path для лимитов: data/<user>_budget_limits.json.
+    Именование выдержано по текущей конвенции проекта.
+    """
+    p = Path(_resolve_db_path(db_path))
+    # извлечём <user> из "<user>_expenses.db"
+    m = re.match(r"(.+?)_expenses\.db$", p.name)
+    user = m.group(1) if m else "default"
+    return DATA_DIR / f"{user}_budget_limits.json"
+
+
+# ---- Соединение и справочные функции --------------------------------------
+
+
+def get_conn(db_path: Optional[PathLike] = None):
+    """Открывает sqlite3.Connection, перед этим гарантируя схему."""
+    path = _resolve_db_path(db_path)
+    ensure_db(path)
+    return sqlite3.connect(path)
+
+
+def list_categories(db_path: Optional[PathLike] = None) -> List[str]:
+    """
+    Возвращает список категорий пользователя:
+    объединение ключей из лимитов и уникальных категорий из таблицы expenses.
+    Гарантирует существование файла лимитов для нового профиля.
+    """
+    path = _resolve_db_path(db_path)
+    ensure_db(path)
+
+    # 1) категории из БД
+    db_cats: set[str] = set()
+    try:
+        with sqlite3.connect(path) as conn:
+            rows = conn.execute(
+                "SELECT DISTINCT category FROM expenses WHERE category IS NOT NULL AND TRIM(category) <> ''"
+            ).fetchall()
+            db_cats.update(str(r[0]).strip() for r in rows if r and r[0])
     except Exception:
         pass
-    # Фолбэк на дефолтного пользователя (и одновременно гарантия существования data/)
-    return get_db_path("default")
+
+    # 2) категории из лимитов (создадим файл при необходимости)
+    lim_path = _limits_path_for_db(path)
+    ensure_limits_file(lim_path)  # ← важный шаг — создаст JSON с базовыми категориями
+    limit_cats: set[str] = set()
+    try:
+        data = json.loads(lim_path.read_text(encoding="utf-8"))
+        base = data.get("limits", {}) or {}
+        limit_cats.update(k.strip() for k in base.keys() if k and str(k).strip())
+    except Exception:
+        pass
+
+    cats = sorted((db_cats | limit_cats) - {""})
+    return cats
 
 
-# 🔹 Хелпер для получения пути к БД пользователя
-def get_db_path(user: str = "default") -> str:
-    """Возвращает путь к БД конкретного пользователя"""
-    user_dir = DATA_DIR / user
-    user_dir.mkdir(exist_ok=True)
-    return str(user_dir / "expenses.db")
-
-
-# 🔹 Путь по умолчанию (для старта без логина)
-DB_PATH = get_db_path("default")
-
-
-# === Пример использования в функциях ===
-
-
-def ensure_schema(db_path: Optional[str] = None):
-    """
-    Создаёт таблицы в базе данных, если их ещё нет.
-    """
-    # Унифицированное определение пути
-    path = _resolve_db_path(db_path)
-
-    with sqlite3.connect(path) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date TEXT,
-                category TEXT,
-                amount REAL,
-                description TEXT
-            )
-            """
-        )
-        conn.commit()
+# ---- CRUD / выборки --------------------------------------------------------
 
 
 def get_expenses_df(
-    db_path: Optional[str] = None,
-    *,
+    db_path: Optional[PathLike] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Читает таблицу expenses как DataFrame c фильтрами."""
-    db_path = _resolve_db_path(db_path)
+    """
+    Возвращает DataFrame из таблицы expenses с опциональными фильтрами.
+    Всегда гарантирует существование схемы.
+    """
+    path = _resolve_db_path(db_path)
+    ensure_db(path)
 
-    where_parts: list[str] = ["WHERE 1=1"]
-    params: list[Any] = []
+    where = ["1=1"]
+    params: List[Union[str, float]] = []
+
     if start_date:
-        where_parts.append("AND date >= ?")
+        where.append("date >= ?")
         params.append(start_date)
     if end_date:
-        where_parts.append("AND date <= ?")
+        where.append("date <= ?")
         params.append(end_date)
     if category:
-        where_parts.append("AND category = ?")
+        where.append("category = ?")
         params.append(category)
 
     sql = f"""
-        SELECT date, category, amount, COALESCE(description, '') AS description
+        SELECT id, date, category, amount, COALESCE(description,'') AS description
         FROM expenses
-        {' '.join(where_parts)}
+        WHERE {' AND '.join(where)}
         ORDER BY date DESC, id DESC
     """
-    with sqlite3.connect(db_path) as conn:
-        df = pd.read_sql_query(sql, conn, params=params)
-    return df
+    with sqlite3.connect(path) as conn:
+        return pd.read_sql_query(sql, conn, params=tuple(params))
 
 
-def add_expense(
-    *,
-    date: str,
-    category: str,
-    amount: float,
-    description: Optional[str] = None,
-    db_path: Optional[str] = None,
-) -> None:
-    db_path = _resolve_db_path(db_path)
-    with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            "INSERT INTO expenses (date, category, amount, description) VALUES (?, ?, ?, ?)",
-            (date, category, amount, description or None),
-        )
-        conn.commit()
+def get_all_expenses(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    category: Optional[str] = None,
+    db_path: Optional[PathLike] = None,
+) -> pd.DataFrame:
+    """Старое имя: вернуть расходы как DataFrame (обёртка над get_expenses_df)."""
+    path = _resolve_db_path(db_path)
+    return get_expenses_df(
+        db_path=path, start_date=start_date, end_date=end_date, category=category
+    )
 
 
 def load_expenses(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     category: Optional[str] = None,
-    db_path: Optional[str] = None,
+    db_path: Optional[PathLike] = None,
 ) -> List[Dict]:
     """
     Универсальная выборка расходов как список словарей (для меню/печати).
-    Путь к БД: явный аргумент > session_state > дефолт.
+    Безопасно работает с пустыми БД.
     """
     path = _resolve_db_path(db_path)
-
-    df = get_expenses_df(
-        db_path=path,
-        start_date=start_date,
-        end_date=end_date,
-        category=category,
-    )
+    ensure_db(path)
+    try:
+        df = get_expenses_df(
+            db_path=path, start_date=start_date, end_date=end_date, category=category
+        )
+    except Exception:
+        return []
     if df is None or df.empty:
         return []
-
     out: List[Dict] = []
     for r in df.to_dict(orient="records"):
         out.append(
@@ -148,107 +230,130 @@ def load_expenses(
                 "date": str(r.get("date", "")),
                 "category": str(r.get("category", "")),
                 "amount": float(r.get("amount") or 0.0),
-                "description": r.get("description") or r.get("note") or None,
+                "description": (r.get("description") or r.get("note") or "") or "",
             }
         )
     return out
 
 
-# --- Совместимость со старым API (тонкие обёртки) ---
-
-
-def get_conn(db_path: Optional[str] = None):
-    """
-    Старое имя: вернуть соединение. Перед отдачей гарантируем схему.
-    Если путь не передан — берём активный (через session_state).
-    """
+def add_expense(
+    date: str,
+    category: str,
+    amount: float,
+    description: str = "",
+    db_path: Optional[PathLike] = None,
+) -> int:
     path = _resolve_db_path(db_path)
-    ensure_schema(path)
-    return sqlite3.connect(path)
+    ensure_db(path)
+    with sqlite3.connect(path) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO expenses(date, category, amount, description) VALUES (?, ?, ?, ?)",
+            (date, category, amount, description or ""),
+        )
+        conn.commit()
+        last_id = cur.lastrowid  # int | None
+        if last_id is None:
+            return 0
+        return int(last_id)
 
 
-def get_all_expenses(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+def update_expense(
+    expense_id: int,
+    *,
+    date: Optional[str] = None,
     category: Optional[str] = None,
-    db_path: Optional[str] = None,
-):
-    """
-    Старое имя: получить все расходы (как DataFrame) с фильтрами.
-    """
+    amount: Optional[float] = None,
+    description: Optional[str] = None,
+    db_path: Optional[PathLike] = None,
+) -> int:
+    """Частичное обновление записи. Возвращает число затронутых строк."""
     path = _resolve_db_path(db_path)
-    return get_expenses_df(
-        db_path=path, start_date=start_date, end_date=end_date, category=category
-    )
+    ensure_db(path)
+
+    sets: List[str] = []
+    params: List[Union[str, float, int]] = []
+    if date is not None:
+        sets.append("date = ?")
+        params.append(date)
+    if category is not None:
+        sets.append("category = ?")
+        params.append(category)
+    if amount is not None:
+        sets.append("amount = ?")
+        params.append(float(amount))
+    if description is not None:
+        sets.append("description = ?")
+        params.append(description)
+
+    if not sets:
+        return 0
+
+    if expense_id is None:
+        return 0  # защита от Optional[int]
+
+    params.append(int(expense_id))
+
+    sql = f"UPDATE expenses SET {', '.join(sets)} WHERE id = ?"
+    with sqlite3.connect(path) as conn:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        conn.commit()
+        rc = cur.rowcount or 0  # rowcount может быть None по типам
+        return int(rc)
 
 
-def list_categories(db_path: Optional[str] = None) -> list[str]:
-    path = db_path or DB_PATH
-    conn = sqlite3.connect(path)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT DISTINCT category
-        FROM expenses
-        WHERE category IS NOT NULL
-          AND TRIM(category) <> ''
-        ORDER BY 1;
-        """
-    )
-    rows = [r[0] for r in cur.fetchall()]
-    conn.close()
-    return rows
+def delete_expense(expense_id: int | None, db_path: Optional[PathLike] = None) -> int:
+    path = _resolve_db_path(db_path)
+    ensure_db(path)
+
+    if expense_id is None:
+        return 0
+
+    with sqlite3.connect(path) as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM expenses WHERE id = ?", (int(expense_id),))
+        conn.commit()
+        rc = cur.rowcount or 0
+        return int(rc)
+
+
+# ---- Опционально: миграция из JSON ----------------------------------------
 
 
 def migrate_json_to_sqlite(
-    json_path: Union[str, PathLike] = "expenses.json",
-    db_path: Optional[str] = None,
+    json_path: PathLike, db_path: Optional[PathLike] = None
 ) -> int:
     """
-    Перенос из JSON в SQLite. Дубликаты игнорируются.
-    Формат JSON: [{date, category, amount, description?}, ...]
+    Импортирует список записей из JSON [ {date, category, amount, description?}, ... ]
+    Возвращает количество вставленных строк.
     """
-    import json
-
     path = _resolve_db_path(db_path)
-    ensure_schema(path)
+    ensure_db(path)
 
-    try:
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except FileNotFoundError:
+    items = json.loads(Path(json_path).read_text(encoding="utf-8"))
+    if not isinstance(items, list):
         return 0
 
     inserted = 0
     with sqlite3.connect(path) as conn:
         cur = conn.cursor()
-        cur.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_expenses_uniq "
-            "ON expenses(date, category, amount, COALESCE(description, ''))"
-        )
-        for row in data:
-            date = str(row.get("date", "")).strip()
-            category = str(row.get("category", "")).strip()
-            try:
-                amount = float(row.get("amount", 0) or 0)
-            except Exception:
-                amount = 0.0
-            desc = row.get("description") or row.get("note") or ""
-
-            if not date or not category:
-                continue
-
-            try:
-                cur.execute(
-                    "INSERT OR IGNORE INTO expenses(date, category, amount, description) "
-                    "VALUES (?,?,?,?)",
-                    (date, category, amount, desc),
-                )
-                inserted += cur.rowcount
-            except Exception:
-                # пропускаем мусорные строки
-                pass
-
+        for r in items:
+            cur.execute(
+                "INSERT INTO expenses(date, category, amount, description) VALUES (?, ?, ?, ?)",
+                (
+                    r.get("date"),
+                    r.get("category"),
+                    float(r.get("amount") or 0.0),
+                    r.get("description") or r.get("note") or "",
+                ),
+            )
+            inserted += 1
         conn.commit()
-
     return inserted
+
+
+# ---- Backward compatibility shim (tests) ----
+def ensure_schema(db_path: Optional[PathLike] = None) -> None:
+    """Старое имя для ensure_db — оставлено для обратной совместимости тестов."""
+    ensure_db(_resolve_db_path(db_path))

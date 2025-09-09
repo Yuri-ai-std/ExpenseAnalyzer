@@ -11,5 +11,12 @@
     "food": 475.0,
     "transport": 760.0
   },
-  "2025-09": {}
+  "2025-09": {
+    "entertainment": 700.0,
+    "food": 0.0,
+    "groceries": 1200.0,
+    "other": 0.0,
+    "transport": 400.0,
+    "utilities": 0.0
+  }
 }

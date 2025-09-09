@@ -1,5 +1,7 @@
 # messages.py
 
+from typing import Optional
+
 messages = {
     "en": {
         # --- Menu ---
@@ -43,7 +45,6 @@ messages = {
         "budget_exceeded": "⚠️ Over budget for {category}!",
         "set_limit_category": "Enter category to set/update limit: ",
         "set_limit_amount": "Enter monthly limit for this category: ",
-        "limit_updated": "Budget limit updated successfully!",
         "no_limits_set": "No budget limits have been set.",
         "limits_header": "=== Budget Limits ===",
         "limit_line": "Category: {category}, Limit: {limit}",
@@ -77,6 +78,15 @@ messages = {
         # --- Exit ---
         "saving_data": "Saving data...",
         "goodbye": "Goodbye!",
+        # ===== Reserved messages (not in use yet) =====
+        "info_no_data_to_export": "No data to export.",
+        "warning_enter_name": "Please enter a name.",
+        "warning_user_name_exists": "User with this name already exists.",
+        "info_cannot_delete_last_user": "You cannot delete the last remaining user.",
+        "error_deletion_failed": "Deletion failed.",
+        "warning_enter_new_name": "Please enter a new name.",
+        "error_rename_failed": "Rename failed.",
+        "caption_no_suggestions_yet": "No suggestions yet.",
     },
     "fr": {
         # --- Menu ---
@@ -120,7 +130,6 @@ messages = {
         "budget_exceeded": "⚠️ Dépassement du budget pour {category} !",
         "set_limit_category": "Entrez la catégorie pour définir/mettre à jour la limite : ",
         "set_limit_amount": "Entrez la limite mensuelle pour cette catégorie : ",
-        "limit_updated": "Limite budgétaire mise à jour avec succès !",
         "no_limits_set": "Aucune limite budgétaire n’a été définie.",
         "limits_header": "=== Limites Budgétaires ===",
         "limit_line": "Catégorie : {category}, Limite : {limit}",
@@ -154,6 +163,15 @@ messages = {
         # --- Exit ---
         "saving_data": "Sauvegarde des données...",
         "goodbye": "Au revoir !",
+        # --- Reserved messages (not in use yet) ---
+        "info_no_data_to_export": "Aucune donnée à exporter.",
+        "warning_enter_name": "Veuillez entrer un nom.",
+        "warning_user_name_exists": "Un utilisateur avec ce nom existe déjà.",
+        "info_cannot_delete_last_user": "Vous ne pouvez pas supprimer le dernier utilisateur restant.",
+        "error_deletion_failed": "Échec de la suppression.",
+        "warning_enter_new_name": "Veuillez entrer un nouveau nom.",
+        "error_rename_failed": "Échec du renommage.",
+        "caption_no_suggestions_yet": "Pas encore de suggestions.",
     },
     "es": {
         # --- Menu ---
@@ -197,7 +215,6 @@ messages = {
         "budget_exceeded": "⚠️ ¡Presupuesto excedido para {category}!",
         "set_limit_category": "Ingrese la categoría para establecer/actualizar el límite: ",
         "set_limit_amount": "Ingrese el límite mensual para esta categoría: ",
-        "limit_updated": "¡Límite de presupuesto actualizado con éxito!",
         "no_limits_set": "No se han establecido límites de presupuesto.",
         "limits_header": "=== Límites de Presupuesto ===",
         "limit_line": "Categoría: {category}, Límite: {limit}",
@@ -231,5 +248,47 @@ messages = {
         # --- Exit ---
         "saving_data": "Guardando datos...",
         "goodbye": "¡Adiós!",
+        # ===== Reserved messages (not in use yet) =====
+        "info_no_data_to_export": "No hay datos para exportar.",
+        "warning_enter_name": "Por favor, ingrese un nombre.",
+        "warning_user_name_exists": "Ya existe un usuario con este nombre.",
+        "info_cannot_delete_last_user": "No puede eliminar el último usuario restante.",
+        "error_deletion_failed": "Error en la eliminación.",
+        "warning_enter_new_name": "Por favor, ingrese un nuevo nombre.",
+        "error_rename_failed": "Error al renombrar.",
+        "caption_no_suggestions_yet": "Aún no hay sugerencias.",
     },
 }
+
+# --- aliases ---
+ALIASES = {
+    "limit_updated": "budget_limit_updated",
+}
+
+
+def _resolve_alias(key: str) -> str:
+    seen = set()
+    cur = key
+    while cur in ALIASES:
+        if cur in seen:
+            break
+        seen.add(cur)
+        cur = ALIASES[cur]
+    return cur
+
+
+def t(key: str, lang: str, default: Optional[str] = None) -> str:
+    """Возвращает перевод ключа key для языка lang.
+    Если ключ/перевод отсутствует или пуст, возвращает default (или сам key, если default=None).
+    """
+    # алиасы
+    real_key = ALIASES.get(key, key)
+
+    # словарь языка
+    lang_dict = messages.get(lang, {})
+
+    # извлекаем перевод
+    val = lang_dict.get(real_key)
+    if val is None or (isinstance(val, str) and val.strip() == ""):
+        return default if default is not None else real_key
+    return val

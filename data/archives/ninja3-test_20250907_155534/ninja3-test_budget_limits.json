@@ -1,0 +1,10 @@
+{
+  "2025-09": {
+    "entertainment": 150.0,
+    "food": 350.0,
+    "groceries": 300.0,
+    "other": 200.0,
+    "transport": 100.0,
+    "utilities": 250.0
+  }
+}
