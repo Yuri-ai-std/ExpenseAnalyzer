@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/yurioshurko/Documents/Expense Analyzer /ExpenseAnalyzer_Restore/.venv/bin/python3" "$0" "$@"
+'''exec' "/Users/yurioshurko/Documents/Expense Analyzer /ExpenseAnalyzer_Restore/.venv/bin/python" "$0" "$@"
 ' '''
 # -*- coding: utf-8 -*-
 import re
