@@ -46,11 +46,17 @@ st_any = cast(Any, st)
 # --- aliases for tests (test_limits_io.py expects underscored names)
 _limits_to_csv_bytes = limits_to_csv_bytes
 
+# ---- Пользователь ----
 st.session_state.setdefault("current_user", "default")
-current_user = st.session_state["current_user"]
 
-ACTIVE_DB_PATH = db_path_for(current_user)  # data/default_expenses.db
-ACTIVE_LIMITS_PATH = limits_path_for(current_user)  # data/default/budget_limits.json
+
+def current_user() -> str:
+    """Возвращает текущего пользователя из session_state."""
+    return st.session_state["current_user"]
+
+
+ACTIVE_DB_PATH = db_path_for(current_user())  # data/default_expenses.db
+ACTIVE_LIMITS_PATH = limits_path_for(current_user())  # data/default/budget_limits.json
 DATA_DIR = Path("data")
 BASE_CATEGORIES = [
     "entertainment",
@@ -221,6 +227,22 @@ def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
     return out
 
 
+def render_recent_expenses_table(
+    db_path, n: int = 10, *, show_title: bool = False, lang: str = "en"
+) -> None:
+    """Показывает последние n операций из указанной БД.
+    Сортировка как везде: новые сверху, дубликаты убираем.
+    """
+    if show_title:
+        st.subheader(t("recent_expenses", lang, default="Recent expenses"))
+
+    raw_df = get_expenses_df(db_path=db_path)
+    df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
+
+    # так как newest_first=True, новые строки сверху => берём .head(n)
+    st.dataframe(df.head(n), width="stretch")
+
+
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
 print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
@@ -259,16 +281,13 @@ def get_categories() -> list[str]:
 st.session_state.setdefault("lang", "en")
 lang = st.session_state["lang"]
 
-# 👉 Определяем активного пользователя (default при старте)
-current_user = st.session_state.get("current_user", "default")
-
 # чтение лимитов пользователя
-limits = load_monthly_limits(user=current_user)
+limits = load_monthly_limits(user=current_user())
 
 # ...изменили словарь limits на форме...
 
 # сохранение лимитов пользователя
-save_monthly_limits(limits, user=current_user)
+save_monthly_limits(limits, user=current_user())
 
 
 def _fetch_categories() -> list[str]:
@@ -336,13 +355,37 @@ def bump_data_version() -> None:
     st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
 
 
+def render_add_expense_page(lang: str) -> None:
+    ss = st.session_state
+    user = current_user()  # получаем имя пользователя
+    keys = add_form_keys(user)  # генерируем ключи формы
+    apply_form_reset(keys)  # сброс формы для этого пользователя
+
+
 # --- Меню ---
-menu = ["Dashboard", "Add Expense", "Browse & Filter", "Charts", "Settings"]
-choice = st.sidebar.radio("Menu", menu)
+lang = st.session_state.get("lang", "en")
 
-if choice == "Dashboard":
-    st.title(t("dashboard", lang, default="Dashboard"))
+MENU = {
+    "dashboard": "menu.dashboard",
+    "add_expense": "menu.add_expense",
+    "browse": "menu.browse",
+    "charts": "menu.charts",
+    "settings": "menu.settings",
+}
 
+choice = st.sidebar.radio(
+    label=t("menu.title", lang, default="Menu"),
+    options=list(MENU.keys()),
+    format_func=lambda k: t(MENU[k], lang, default=k),
+    key="sidebar_choice",
+)
+
+# ----- Dashboard -----
+if choice == "dashboard":
+    st.header(t("menu.dashboard", lang, default="Dashboard"))
+    st.write("📊 Dashboard page (placeholder)")
+
+    # ----- Фильтры по дате -----
     today = date.today()
     month_start = today.replace(day=1)
 
@@ -441,122 +484,173 @@ if choice == "Dashboard":
     )
     st.bar_chart(cat_totals, use_container_width=True)
 
+    # ----- Последние операции -----
+    render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=True, lang=lang)
+
 # =================== Add Expense ===================
-elif choice == "Add Expense":
-    st.title(t("add_expense", lang, default="Add Expense"))
+elif choice == "add_expense":
+    lang = st.session_state.get("lang", "en")
+    st.header(t("menu.add_expense", lang, default="Add Expense"))
 
-    # ---- активный пользователь и БД ----
-    user = get_active_user()
-    db_path = get_db_path(user)
-    ensure_db(db_path)
+    # стабильные токены режима
+    MODE_CHOOSE = "choose"
+    MODE_NEW = "new"
 
-    # ---- категории ----
-    cats = sorted(set(list_categories(db_path=db_path)) | set(BASE_CATEGORIES))
-    st.caption(f"DBG ➜ user={user!s} | db={db_path!s} | cats={cats!r}")
-
-    # ---- ключи + мягкий сброс (если надо) ----
-    keys = add_form_keys(user)
+    # ключи формы и состояние
+    user = current_user()
+    keys = add_form_keys(user)  # <- у вас уже есть этот генератор ключей
     ss = st.session_state
 
-    # мягко очищаем поля формы ТОЛЬКО если поднят флаг reset
+    # дефолтный режим при первом входе
+    if keys["mode"] not in ss:
+        ss[keys["mode"]] = MODE_NEW
+
+    # применяем сброс формы (ВАЖНО: хелпер ждёт keys, не user)
     apply_form_reset(keys)
 
-    # гарантируем стартовую дату до виджетов
-    if keys["date"] not in ss:
-        ss[keys["date"]] = _date.today()
+    # переключатель режима
+    def _on_mode_change():
+        request_form_reset(keys)  # <- тоже передаём keys
 
-    # ---- переключатель режима: choose / new ----
-    def _on_mode_change() -> None:
-        # мягкий сброс полей формы — только ставим флаг
-        request_form_reset(keys)
-        ss["_flash"] = ("Mode switched", "🔁")
-        # st.rerun() НЕ нужен внутри on_change — Streamlit сам перерендерит
+    try:
+        st.segmented_control(
+            label=t("add_expense.category_mode", lang, default="Category"),
+            options=[MODE_CHOOSE, MODE_NEW],
+            format_func=lambda m: (
+                t("add_expense.mode.existing", lang, default="Choose existing")
+                if m == MODE_CHOOSE
+                else t("add_expense.mode.new", lang, default="Enter new")
+            ),
+            key=keys["mode"],
+            on_change=_on_mode_change,
+        )
+    except Exception:
+        # fallback на radio, если segmented_control недоступен
+        ss[keys["mode"]] = st.radio(
+            t("add_expense.category_mode", lang, default="Category"),
+            options=[MODE_CHOOSE, MODE_NEW],
+            index=[MODE_CHOOSE, MODE_NEW].index(ss[keys["mode"]]),
+            format_func=lambda m: (
+                t("add_expense.mode.existing", lang, default="Choose existing")
+                if m == MODE_CHOOSE
+                else t("add_expense.mode.new", lang, default="Enter new")
+            ),
+            key="add_expense_mode_radio",
+        )
 
-    st.segmented_control(
-        label=t("category", lang, default="Category"),
-        options=["choose", "new"],
-        format_func=lambda m: (
-            t("choose_existing", lang, default="Choose existing")
-            if m == "choose"
-            else t("enter_new", lang, default="Enter new")
-        ),
-        key=keys["mode"],
-        on_change=_on_mode_change,
-    )
+    # категории
+    try:
+        cats = list(get_categories())
+    except Exception:
+        cats = []
 
-    # ---- единая форма ----
+    if not cats:
+        cats = list(BASE_CATEGORIES)
+
+    cats = sorted(cats)
+
+    # ----- форма -----
     with st.form(f"add_form_{user}", clear_on_submit=False):
-        d = st.date_input(t("date", lang, default="Date"), key=keys["date"])
+        d = st.date_input(t("common.date", lang, default="Date"), key=keys["date"])
 
-        mode = ss.get(keys["mode"], "choose")
-        if mode == "choose":
+        mode = ss[keys["mode"]]
+        if mode == MODE_CHOOSE:
             cat_val = st.selectbox(
-                t("choose_category", lang, default="Choose category"),
-                options=sorted(cats),
+                t("add_expense.choose_existing", lang, default="Choose category"),
+                options=cats,
                 index=0 if cats else None,
                 key=keys["choose"],
             )
             new_val = ""
         else:
             new_val = st.text_input(
-                t("new_category", lang, default="New category"),
+                t("add_expense.new_category", lang, default="New category"),
                 key=keys["new"],
             )
             cat_val = None
 
         amt = st.number_input(
-            t("amount", lang, default="Amount"),
+            t("common.amount", lang, default="Amount"),
             min_value=0.0,
             step=1.0,
             key=keys["amount"],
         )
-
         note = st.text_area(
-            t("description", lang, default="Description"),
+            t("common.description", lang, default="Description"),
             key=keys["note"],
         )
 
-        submit = st.form_submit_button(t("submit", lang, default="Submit"))
+        submit = st.form_submit_button(t("common.submit", lang, default="Submit"))
 
-    # ---- обработка submit ----
+    # ----- обработка сабмита -----
     if submit:
-        chosen_cat = (
-            (new_val or "").strip() if mode == "new" else (cat_val or "").strip()
-        )
         errors = []
-        if not chosen_cat:
-            errors.append("Please enter / choose a category.")
-        if amt <= 0:
-            errors.append("Amount must be greater than zero.")
 
+        # 1) дата -> ISO-строка
+        date_str = ""
+        if d:
+            try:
+                # d это date | datetime | None
+                date_str = d.strftime("%Y-%m-%d")
+            except Exception:
+                date_str = str(d)
+        else:
+            errors.append(
+                t("error.missing_date", lang, default="Please select a date.")
+            )
+
+        # 2) категория -> гарантируем строку
+        if mode == MODE_NEW:
+            cat = (new_val or "").strip()
+        else:
+            cat = (cat_val or "").strip()
+        if not cat:
+            errors.append(
+                t(
+                    "error.missing_category",
+                    lang,
+                    default="Please choose or enter a category.",
+                )
+            )
+
+        # 3) сумма > 0
+        try:
+            ok_amount = float(amt) > 0
+        except Exception:
+            ok_amount = False
+        if not ok_amount:
+            errors.append(
+                t(
+                    "error.invalid_amount",
+                    lang,
+                    default="Amount must be greater than 0.",
+                )
+            )
+
+        # показываем ошибки или сохраняем
         if errors:
             for e in errors:
                 st.error(e)
         else:
-            try:
-                add_expense(
-                    db_path=db_path,
-                    date=d.isoformat(),  # <-- ВАЖНО: дата строкой
-                    category=chosen_cat,
-                    amount=float(amt),
-                    description=(note or "").strip(),
-                )
-            except Exception as e:
-                st.error(f"Could not save expense. {e}")
-            else:
-                # успех: попросим сброс на следующий рендер
-                request_form_reset(keys)
-                ss["_flash"] = ("Expense added successfully!", "✅")
-                bump_data_version()
-                st.rerun()  # сразу показать очищенную форму и тост
+            # сохранение: ваша функция добавления записи ожидает date как str
+            add_expense(
+                date=date_str,
+                category=cat,
+                amount=float(amt),
+                description=(note or "").strip(),
+            )
+
+            st.success(t("info.expense_added", lang, default="Expense added."))
+            request_form_reset(keys)  # сброс поля/режима после добавления
+            st.rerun()
 
     # ---- таблица последних записей (как было у вас) ----
-    df = get_expenses_df(db_path=db_path)
-    st.dataframe(df.tail(10), width="stretch")
+    render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=False, lang=lang)
 
 # ================= Browse & Filter =================
-elif choice == "Browse & Filter":
-    st.title(t("browse_filter", lang, default="Browse & Filter"))
+elif choice == "browse":
+    st.header(t("menu.browse", lang, default="Browse & Filter"))
+    st.write("🔎 Browse & Filter page (placeholder)")
 
     # Загружаем все данные
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
@@ -713,8 +807,10 @@ elif choice == "Browse & Filter":
     export_df_to_excel_button(f_disp, filename="expenses_filtered.xlsx")
 
 
-elif choice == "Charts":
-    st.title(t("charts", lang, default="Charts"))
+# ================= Charts & Analytics =================
+elif choice == "charts":
+    st.header(t("menu.charts", lang, default="Charts"))
+    st.write("📈 Charts page (placeholder)")
 
     # ---- Контроли периода ----
     colp1, colp2, colp3 = st.columns([1.4, 1.4, 1])
@@ -883,24 +979,25 @@ elif choice == "Charts":
         )
 
 
-elif choice == "Settings":
-    st.title(t("settings", lang, default="Settings"))
+elif choice == "settings":
+    st.header(t("menu.settings", lang, default="Settings"))
 
-    # текущий язык из session_state (по умолчанию en)
+    # текущий язык (по умолчанию en)
     current_lang = st.session_state.get("lang", "en")
 
     # селектор языка
-    lang = st.selectbox(
-        "Language",
-        ["en", "fr", "es"],
+    new_lang = st.selectbox(
+        label=t("settings.language", current_lang, default="Language"),
+        options=["en", "fr", "es"],
         index=["en", "fr", "es"].index(current_lang),
-        help="UI language",
+        key="sidebar_lang_select",
     )
 
     # сохраняем только если изменили
-    if lang != current_lang:
-        st.session_state["lang"] = lang
-        st.toast(t("language_switched", lang, default="Language switched"))
+    if new_lang != current_lang:
+        st.session_state["lang"] = new_lang
+        st.toast(t("language_switched", new_lang, default="Language switched"))
+        st.rerun()
 
 # =================== /User / Profile ===================
 
@@ -1209,7 +1306,7 @@ with exp_col2:
             st.error(t("csv_import_failed", lang, default="CSV import failed"))
 
 # ---- Change log (session) ----------------------------------------------------
-st.markdown(f"#### {t("change_log", lang, default="Change log (session)")}")
+st.markdown(f"#### {t('change_log', lang, default='Change log (session)')}")
 
 log_col1, log_col2, log_col3, log_col4 = st.columns(4)
 

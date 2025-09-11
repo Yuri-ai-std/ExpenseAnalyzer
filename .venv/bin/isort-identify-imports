@@ -1,5 +1,5 @@
 #!/bin/sh
-'''exec' "/Users/yurioshurko/Documents/Expense Analyzer /ExpenseAnalyzer_Restore/.venv/bin/python3" "$0" "$@"
+'''exec' "/Users/yurioshurko/Documents/Expense Analyzer /ExpenseAnalyzer_Restore/.venv/bin/python" "$0" "$@"
 ' '''
 import sys
 from isort.main import identify_imports_main

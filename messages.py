@@ -4,7 +4,7 @@ from typing import Optional
 
 messages = {
     "en": {
-        # --- Menu ---
+        # --- Legacy CLI Menu (not used in Streamlit UI) ---
         "menu_header": "=== Expense Analyzer Menu ===",
         "menu_options": (
             "1: Add expense\n"
@@ -19,6 +19,24 @@ messages = {
         ),
         "enter_option": "Enter option: ",
         "invalid_option": "Invalid option! Please enter a number from 1 to 8.",
+        # --- Streamlit UI: menu ---
+        "menu.title": "Menu",
+        "menu.dashboard": "Dashboard",
+        "menu.add_expense": "Add Expense",
+        "menu.browse": "Browse & Filter",
+        "menu.charts": "Charts",
+        "menu.settings": "Settings",
+        # --- Streamlit UI: Add Expense ---
+        "add_expense.category_mode": "Category",
+        "add_expense.mode.existing": "Choose existing",
+        "add_expense.mode.new": "Enter new",
+        "add_expense.choose_existing": "Choose a category",
+        "add_expense.new_category": "New category",
+        # --- Streamlit UI: common labels ---
+        "common.date": "Date",
+        "common.amount": "Amount",
+        "common.description": "Description",
+        "common.submit": "Submit",
         # --- Input Prompts ---
         "enter_date": "Enter date (YYYY-MM-DD): ",
         "invalid_date": "Invalid date! Use YYYY-MM-DD.",
@@ -31,6 +49,7 @@ messages = {
         "expense_summary": "Expense summary:",
         "expense_added": "Expense added successfully!",
         "no_expenses": "No expenses recorded.",
+        "recent_expenses": "Recent expenses",
         # --- Summary & Reports ---
         "summary_header": "=== Expense Summary ===",
         "summary_line": "Category: {category}, Total: {total}",
@@ -55,7 +74,6 @@ messages = {
         "filter_results_header": "=== Filtered Expenses ===",
         "no_results": "No expenses found for this period.",
         # --- Settings: Limits ---
-        "settings": "Settings",
         "month": "Month",
         "categories": "Categories",
         "edit_limits": "Edit Monthly Limits",
@@ -89,7 +107,7 @@ messages = {
         "caption_no_suggestions_yet": "No suggestions yet.",
     },
     "fr": {
-        # --- Menu ---
+        # --- Legacy CLI Menu (not used in Streamlit UI) ---
         "menu_header": "=== Menu de l'Analyseur de Dépenses ===",
         "menu_options": (
             "1: Ajouter une dépense\n"
@@ -104,6 +122,24 @@ messages = {
         ),
         "enter_option": "Choisissez une option : ",
         "invalid_option": "Option invalide ! Veuillez entrer un nombre de 1 à 8.",
+        # --- Interface Streamlit : menu ---
+        "menu.title": "Menu",
+        "menu.dashboard": "Tableau de bord",
+        "menu.add_expense": "Ajouter une dépense",
+        "menu.browse": "Parcourir & Filtrer",
+        "menu.charts": "Graphiques",
+        "menu.settings": "Paramètres",
+        # --- Interface Streamlit : Ajouter une dépense ---
+        "add_expense.category_mode": "Catégorie",
+        "add_expense.mode.existing": "Choisir existante",
+        "add_expense.mode.new": "Saisir nouvelle",
+        "add_expense.choose_existing": "Choisissez une catégorie",
+        "add_expense.new_category": "Nouvelle catégorie",
+        # --- Interface Streamlit : libellés communs ---
+        "common.date": "Date",
+        "common.amount": "Montant",
+        "common.description": "Description",
+        "common.submit": "Valider",
         # --- Input Prompts ---
         "enter_date": "Entrez la date (AAAA-MM-JJ) : ",
         "invalid_date": "Date invalide ! Utilisez AAAA-MM-JJ.",
@@ -116,6 +152,7 @@ messages = {
         "expense_summary": "Résumé des dépenses :",
         "expense_added": "Dépense ajoutée avec succès !",
         "no_expenses": "Aucune dépense enregistrée.",
+        "recent_expenses": "Dépenses récentes",
         # --- Summary & Reports ---
         "summary_header": "=== Résumé des Dépenses ===",
         "summary_line": "Catégorie : {category}, Total : {total}",
@@ -140,7 +177,6 @@ messages = {
         "filter_results_header": "=== Dépenses Filtrées ===",
         "no_results": "Aucune dépense trouvée pour cette période.",
         # --- Settings: Limits ---
-        "settings": "Paramètres",
         "month": "Mois",
         "categories": "Catégories",
         "edit_limits": "Modifier les plafonds mensuels",
@@ -174,7 +210,7 @@ messages = {
         "caption_no_suggestions_yet": "Pas encore de suggestions.",
     },
     "es": {
-        # --- Menu ---
+        # --- Legacy CLI Menu (not used in Streamlit UI) ---
         "menu_header": "=== Menú del Analizador de Gastos ===",
         "menu_options": (
             "1: Añadir gasto\n"
@@ -189,6 +225,24 @@ messages = {
         ),
         "enter_option": "Elija una opción: ",
         "invalid_option": "¡Opción inválida! Por favor, ingrese un número del 1 al 8.",
+        # --- Interfaz Streamlit: menú ---
+        "menu.title": "Menú",
+        "menu.dashboard": "Panel",
+        "menu.add_expense": "Añadir gasto",
+        "menu.browse": "Buscar & Filtrar",
+        "menu.charts": "Gráficos",
+        "menu.settings": "Ajustes",
+        # --- Interfaz Streamlit: Añadir gasto ---
+        "add_expense.category_mode": "Categoría",
+        "add_expense.mode.existing": "Elegir existente",
+        "add_expense.mode.new": "Ingresar nueva",
+        "add_expense.choose_existing": "Elige una categoría",
+        "add_expense.new_category": "Nueva categoría",
+        # --- Interfaz Streamlit: etiquetas comunes ---
+        "common.date": "Fecha",
+        "common.amount": "Importe",
+        "common.description": "Descripción",
+        "common.submit": "Enviar",
         # --- Input Prompts ---
         "enter_date": "Ingrese la fecha (AAAA-MM-DD): ",
         "invalid_date": "¡Fecha inválida! Use AAAA-MM-DD.",
@@ -201,6 +255,7 @@ messages = {
         "expense_summary": "Resumen de gastos:",
         "expense_added": "¡Gasto agregado con éxito!",
         "no_expenses": "No se registraron gastos.",
+        "recent_expenses": "Gastos recientes",
         # --- Summary & Reports ---
         "summary_header": "=== Resumen de Gastos ===",
         "summary_line": "Categoría: {category}, Total: {total}",
@@ -225,7 +280,6 @@ messages = {
         "filter_results_header": "=== Gastos Filtrados ===",
         "no_results": "No se encontraron gastos para este período.",
         # --- Settings: Limits ---
-        "settings": "Ajustes",
         "month": "Mes",
         "categories": "Categorías",
         "edit_limits": "Editar límites mensuales",
@@ -263,6 +317,11 @@ messages = {
 # --- aliases ---
 ALIASES = {
     "limit_updated": "budget_limit_updated",
+    # совместимость со старыми/жёсткими ключами:
+    "Settings": "menu.settings",
+    "settings": "menu.settings",
+    # избавляемся от дубликатов между меню и заголовком страницы
+    "add_expense.title": "menu.add_expense",
 }
 
 
