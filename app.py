@@ -227,6 +227,26 @@ def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
     return out
 
 
+# ---- Табличные заголовки (локализация) ----
+def _col_labels(lang: str) -> dict[str, str]:
+    return {
+        "id": t("col.id", lang, default="id"),
+        "date": t("col.date", lang, default="Date"),
+        "category": t("col.category", lang, default="Category"),
+        "amount": t("col.amount", lang, default="Amount"),
+        "description": t("col.description", lang, default="Description"),
+    }
+
+
+def render_table(df, cols, lang: str, **st_kwargs):
+    """
+    Срезает нужные колонки (по исходным ключам) и ПЕРЕИМЕНОВЫВАЕТ только для отображения.
+    Логику (группировки/сортировки) это не ломает.
+    """
+    df_disp = df.loc[:, cols].rename(columns=_col_labels(lang))
+    st.dataframe(df_disp, **st_kwargs)
+
+
 def render_recent_expenses_table(
     db_path, n: int = 10, *, show_title: bool = False, lang: str = "en"
 ) -> None:
@@ -240,7 +260,18 @@ def render_recent_expenses_table(
     df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
 
     # так как newest_first=True, новые строки сверху => берём .head(n)
-    st.dataframe(df.head(n), width="stretch")
+    df_recent = df.head(n)
+
+    # Локализованный вывод таблицы
+    cols = ["id", "date", "category", "amount", "description"]
+    render_table(
+        df_recent,
+        cols=cols,
+        lang=lang,
+        hide_index=True,
+        width="stretch",  # или width="stretch", если вам так привычнее
+        height=360,  # опционально, для одинаковой высоты
+    )
 
 
 # ===== ЛОГ ПЕРЕЗАПУСКА =====
@@ -383,7 +414,9 @@ choice = st.sidebar.radio(
 # ----- Dashboard -----
 if choice == "dashboard":
     st.header(t("menu.dashboard", lang, default="Dashboard"))
-    st.write("📊 Dashboard page (placeholder)")
+    st.write(
+        "📊 " + t("dashboard.placeholder", lang, default="Dashboard page (placeholder)")
+    )
 
     # ----- Фильтры по дате -----
     today = date.today()
@@ -399,25 +432,30 @@ if choice == "dashboard":
     c1, c2, c3 = st.columns((1, 1, 0.5))
     with c1:
         start_d = st.date_input(
-            "Start",
+            t("common.start", lang, default="Start"),
             value=pd.to_datetime(st.session_state["dash_start"]).date(),
             key="dash_start_input",
         )
+
     with c2:
         end_d = st.date_input(
-            "End",
+            t("common.end", lang, default="End"),
             value=pd.to_datetime(st.session_state["dash_end"]).date(),
             key="dash_end_input",
         )
+
     with c3:
-        refresh = st.button("Apply", key="dash_apply")
+        refresh = st.button(t("common.apply", lang, default="Apply"), key="dash_apply")
 
     # 3) При нажатии Apply переносим значения из виджетов в хранилище
     # и мягко перерисовываем страницу
     if refresh:
         st.session_state["dash_start"] = start_d.isoformat()
         st.session_state["dash_end"] = end_d.isoformat()
-        st.session_state["_flash"] = ("Filters applied", "⚙️")
+        st.session_state["_flash"] = (
+            t("dashboard.filters_applied", lang, default="Filters applied"),
+            "⚙️",
+        )
         st.rerun()
 
     # 4) Строки для загрузки данных
@@ -446,15 +484,15 @@ if choice == "dashboard":
     cats = int(df["category"].nunique())
 
     k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Total", f"{total:.2f}")
-    k2.metric("Operations", f"{count}")
-    k3.metric("Average", f"{avg:.2f}")
-    k4.metric("Categories", f"{cats}")
+    k1.metric(t("kpi.total", lang, default="Total"), f"{total:.2f}")
+    k2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
+    k3.metric(t("kpi.average", lang, default="Average"), f"{avg:.2f}")
+    k4.metric(t("kpi.categories", lang, default="Categories"), f"{cats}")
 
     st.divider()
 
     # ----- Топ последних операций -----
-    st.subheader("Last operations")
+    st.subheader(t("dashboard.last_operations", lang, default="Last operations"))
     show_cols = ["date", "category", "amount", "description"]
 
     # проверяем, есть ли колонка id для надёжной сортировки
@@ -466,15 +504,18 @@ if choice == "dashboard":
         .head(5)
     )
 
-    st.dataframe(
+    show_cols = ["date", "category", "amount", "description"]
+    render_table(
         last5,
-        width="stretch",
+        cols=show_cols,
+        lang=lang,
         hide_index=True,
-        height=220,  # немного увеличим высоту для наглядности
+        width="stretch",
+        height=220,
     )
 
     # ----- Диаграмма по категориям -----
-    st.subheader("By category")
+    st.subheader(t("dashboard.by_category", lang, default="By category"))
     cat_totals = (
         df.groupby("category", dropna=False)["amount"]
         .sum()
@@ -514,7 +555,7 @@ elif choice == "add_expense":
 
     try:
         st.segmented_control(
-            label=t("add_expense.category_mode", lang, default="Category"),
+            label=t("browse.category", lang, default="Category"),
             options=[MODE_CHOOSE, MODE_NEW],
             format_func=lambda m: (
                 t("add_expense.mode.existing", lang, default="Choose existing")
@@ -527,7 +568,7 @@ elif choice == "add_expense":
     except Exception:
         # fallback на radio, если segmented_control недоступен
         ss[keys["mode"]] = st.radio(
-            t("add_expense.category_mode", lang, default="Category"),
+            t("browse.category", lang, default="Category"),
             options=[MODE_CHOOSE, MODE_NEW],
             index=[MODE_CHOOSE, MODE_NEW].index(ss[keys["mode"]]),
             format_func=lambda m: (
@@ -551,7 +592,7 @@ elif choice == "add_expense":
 
     # ----- форма -----
     with st.form(f"add_form_{user}", clear_on_submit=False):
-        d = st.date_input(t("common.date", lang, default="Date"), key=keys["date"])
+        d = st.date_input(t("col.date", lang, default="Date"), key=keys["date"])
 
         mode = ss[keys["mode"]]
         if mode == MODE_CHOOSE:
@@ -570,7 +611,7 @@ elif choice == "add_expense":
             cat_val = None
 
         amt = st.number_input(
-            t("common.amount", lang, default="Amount"),
+            t("col.amount", lang, default="Amount"),
             min_value=0.0,
             step=1.0,
             key=keys["amount"],
@@ -650,7 +691,10 @@ elif choice == "add_expense":
 # ================= Browse & Filter =================
 elif choice == "browse":
     st.header(t("menu.browse", lang, default="Browse & Filter"))
-    st.write("🔎 Browse & Filter page (placeholder)")
+    st.write(
+        "🔎 "
+        + t("browse.placeholder", lang, default="Browse & Filter page (placeholder)")
+    )
 
     # Загружаем все данные
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
@@ -751,15 +795,22 @@ elif choice == "browse":
     st.divider()
 
     # --- Опции отображения/очистки ---
-    st.subheader("View options")
+    st.subheader(t("browse.view_options", lang, default="View options"))
     col_opts, _ = st.columns([1, 3])
     with col_opts:
         rm_dups = st.checkbox(
-            "Remove exact duplicates",
+            t("browse.remove_dups", lang, default="Remove exact duplicates"),
             value=True,
-            help="Убирает полностью совпадающие строки (date, category, amount, description).",
+            help=t(
+                "browse.remove_dups_help",
+                lang,
+                default="Remove rows that are exact duplicates (date, category, amount, description).",
+            ),
         )
-        newest_first = st.checkbox("Newest first", value=True)
+        newest_first = st.checkbox(
+            t("browse.newest_first", lang, default="Newest first"),
+            value=True,
+        )
 
     # --- Подготовка данных к показу ---
     f_disp = f.copy()
@@ -795,7 +846,7 @@ elif choice == "browse":
     st.divider()
 
     # --- Экспорт данных ---
-    st.subheader("Export Data")
+    st.subheader(t("browse.export_data", lang, default="Export Data"))
     csv_bytes = f_disp.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 Download CSV",
@@ -868,7 +919,7 @@ elif choice == "charts":
     # =========================
     #  A) Бар-чарт по категориям
     # =========================
-    st.subheader(t("by_category", lang, default="By category"))
+    st.subheader(t("dashboard.by_category", lang, default="By category"))
     cat_sum = (
         df.groupby("category", as_index=False)
         .agg(amount=("amount", "sum"))  # <- получаем DataFrame с колонкой amount
@@ -901,7 +952,7 @@ elif choice == "charts":
     # =========================
     #  B) Линия: динамика по датам
     # =========================
-    st.subheader(t("by_date", lang, default="By date"))
+    st.subheader(t("charts.by_date", lang, default="By date"))
     daily = (
         df.groupby("date", as_index=False)
         .agg(amount=("amount", "sum"))  # DataFrame
@@ -928,7 +979,9 @@ elif choice == "charts":
     # =========================
     #  C) (опционально) Pie-chart
     # =========================
-    with st.expander(t("share_by_category", lang, default="Share by category (pie)")):
+    with st.expander(
+        t("charts.share_by_category", lang, default="Share by category (pie)")
+    ):
         share = cat_sum.copy()
         total_sum = float(share["amount"].sum()) or 1.0
         share["share"] = share["amount"] / total_sum
@@ -978,18 +1031,20 @@ elif choice == "charts":
             },
         )
 
-
+# ================= Settings =================
 elif choice == "settings":
     st.header(t("menu.settings", lang, default="Settings"))
 
     # текущий язык (по умолчанию en)
+    langs = ["en", "fr", "es"]
     current_lang = st.session_state.get("lang", "en")
+    idx = langs.index(current_lang) if current_lang in langs else 0
 
     # селектор языка
     new_lang = st.selectbox(
-        label=t("settings.language", current_lang, default="Language"),
-        options=["en", "fr", "es"],
-        index=["en", "fr", "es"].index(current_lang),
+        t("settings.language", current_lang, default="Language"),
+        options=langs,
+        index=idx,
         key="sidebar_lang_select",
     )
 
@@ -1054,39 +1109,58 @@ def switch_user(user: str, toast: str = "Switched"):
 
 
 # ---- UI ----
-st.subheader("User / Profile")
+st.subheader(t("profile.title", lang, default="User / Profile"))
 
 # текущее значение
 current = st.session_state.setdefault("current_user", "default")
 users = list_users()
 if current not in users:
-    # если активного нет в списке (после ручных манипуляций с файлами) — приводим в порядок
     current = users[0]
     st.session_state["current_user"] = current
 
 # первая строка: Active user + Create / rename user + Create
 c1, c2, c3 = st.columns([1.2, 1.2, 0.6])
+
 with c1:
     sel = st.selectbox(
-        "Active user", users, index=users.index(current), key="settings_active_user"
+        t("profile.active_user", lang, default="Active user"),
+        users,
+        index=users.index(current),
+        key="settings_active_user",
     )
+
 with c2:
     new_name = st.text_input(
-        "Create / rename user",
+        t("profile.create_rename_user", lang, default="Create / rename user"),
         value="",
-        placeholder="Type name",
+        placeholder=t("profile.type_name", lang, default="Type name"),
         key="settings_new_name",
     ).strip()
+
 with c3:
-    if st.button("Create", key="settings_btn_create"):
+    if st.button(
+        t("buttons.create", lang, default="Create"), key="settings_btn_create"
+    ):
         if not new_name:
-            st.warning("Please enter a name.")
+            st.warning(
+                t("errors.warning_enter_name", lang, default="Please enter a name.")
+            )
         elif new_name in users:
-            st.warning("User with this name already exists.")
+            st.warning(
+                t(
+                    "errors.warning_user_name_exists",
+                    lang,
+                    default="User with this name already exists.",
+                )
+            )
         else:
-            # лениво создаём БД (ensure_db) и переключаемся
             ensure_db(get_db_path(new_name))
-            switch_user(new_name, toast="Created & switched")
+            switch_user(
+                new_name,
+                toast=t(
+                    "profile.toast_created_switched", lang, default="Created & switched"
+                ),
+            )
 
 # подпись с файлами активного пользователя
 dbf, limf = files_for(sel)
@@ -1094,61 +1168,99 @@ st.caption(f"DB:  {dbf.name}  —  Limits:  {limf.name}")
 
 # вторая строка: архивирование + Delete + Rename
 c4, c5, c6 = st.columns([0.9, 0.7, 0.7])
+
 with c4:
     do_archive = st.checkbox(
-        "Archive before delete", value=True, key="settings_archive_before_delete"
+        t("profile.archive_before_delete", lang, default="Archive before delete"),
+        value=True,
+        key="settings_archive_before_delete",
     )
 
 with c5:
     disable_delete = len(users) <= 1
-    if st.button("Delete user", disabled=disable_delete, key="settings_btn_delete"):
+    delete_help = t(
+        "profile.cannot_delete_last",
+        lang,
+        default="You cannot delete the last remaining user.",
+    )
+
+    if disable_delete:
+        st.caption(f"ℹ️ {delete_help}")
+
+    if st.button(
+        t("profile.delete_user", lang, default="Delete user"),
+        disabled=disable_delete,
+        help=delete_help,  # подсказка при наведении
+        key="settings_btn_delete",
+    ):
         if disable_delete:
-            st.info("You cannot delete the last remaining user.")
+            st.info(
+                t(
+                    "profile.cannot_delete_last",
+                    lang,
+                    default="You cannot delete the last remaining user.",
+                )
+            )
         else:
             try:
                 if do_archive:
                     archive_user(sel)
                 else:
-                    # удаляем файлы без архивации
                     if dbf.exists():
                         dbf.unlink()
                     if limf.exists():
                         limf.unlink()
-                # после удаления выбираем другого юзера
                 remaining = [u for u in list_users() if u != sel]
                 switch_user(
-                    remaining[0] if remaining else "default", toast="Deleted, switched"
+                    remaining[0] if remaining else "default",
+                    toast=t(
+                        "profile.toast_deleted_switched",
+                        lang,
+                        default="Deleted, switched",
+                    ),
                 )
             except Exception as e:
-                st.error("Deletion failed.")
+                st.error(t("profile.deletion_failed", lang, default="Deletion failed."))
                 st.exception(e)
 
 with c6:
-    # отдельная кнопка Rename для текущего sel → new_name
-    if st.button("Rename", key="settings_btn_rename"):
+    if st.button(
+        t("profile.rename", lang, default="Rename"), key="settings_btn_rename"
+    ):
         if not new_name:
-            st.warning("Please enter a new name.")
+            st.warning(
+                t(
+                    "errors.warning_enter_new_name",
+                    lang,
+                    default="Please enter a new name.",
+                )
+            )
         elif new_name in users:
-            st.warning("User with this name already exists.")
-        elif sel == "default":
-            # при желании можно запретить переименование default — уберите этот блок, если не нужно
-            try:
-                rename_user(sel, new_name)
-                switch_user(new_name, toast="Renamed & switched")
-            except Exception as e:
-                st.error("Rename failed.")
-                st.exception(e)
+            st.warning(
+                t(
+                    "errors.warning_user_name_exists",
+                    lang,
+                    default="User with this name already exists.",
+                )
+            )
         else:
             try:
                 rename_user(sel, new_name)
-                switch_user(new_name, toast="Renamed & switched")
+                switch_user(
+                    new_name,
+                    toast=t(
+                        "profile.toast_renamed_switched",
+                        lang,
+                        default="Renamed & switched",
+                    ),
+                )
             except Exception as e:
-                st.error("Rename failed.")
+                st.error(t("profile.rename_failed", lang, default="Rename failed."))
                 st.exception(e)
 
 # быстрый свитч, если пользователь в select изменён
 if sel != current and st.session_state.get("settings_active_user") == sel:
-    switch_user(sel, toast="Switched")
+    switch_user(sel, toast=t("profile.toast_switched", lang, default="Switched"))
 
 # --- Monthly limits ----------------------------------------------------------
 
@@ -1204,9 +1316,24 @@ def _save_limits(mk: str, values: dict[str, float], path: Path) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def current_limits_month() -> str:
+    """Возвращает месяц для блока Limits в формате YYYY-MM."""
+    src = (
+        st.session_state.get("limits_month")  # если выбран месяц в UI
+        or st.session_state.get("dash_start")  # иначе дата старта Dashboard
+        or date.today().replace(day=1)  # fallback: первый день текущего месяца
+    )
+    if isinstance(src, str):
+        try:
+            src = datetime.fromisoformat(src).date()
+        except ValueError:
+            src = date.today().replace(day=1)
+    return src.strftime("%Y-%m")
+
+
 # ---------------- UI ----------------
 
-st.subheader("Monthly limits")
+st.subheader(t("limits.monthly_title", lang, default="Monthly limits"))
 
 # Показываем активные файлы
 db_path_str, limits_file = _active_paths()
@@ -1214,7 +1341,7 @@ st.caption(f"DB: {db_path_str} — Limits: {limits_file.name}")
 
 # 1) Выбор месяца (уникальный key обязателен)
 month = st.date_input(
-    "Month",
+    t("limits.month", lang, default="Month"),
     value=date.today().replace(day=1),
     format="YYYY/MM/DD",
     key="limits_month",
@@ -1226,7 +1353,13 @@ cats = _categories_for_editor(db_path_str)
 limits_now = _load_limits(mk, limits_file)
 
 # 3) Редактор лимитов
-st.write(f"User: {_active_user()} • Month: {mk}")
+user = current_user()  # получаем текущего пользователя
+ym = current_limits_month()  # получаем текущий месяц в формате YYYY-MM
+
+st.write(
+    f"{t('profile.title', lang, default='User / Profile').split(' / ')[0]}: {user} • "
+    f"{t('limits.month', lang, default='Month')}: {ym}"
+)
 
 values: dict[str, float] = {}
 for cat in cats:
@@ -1235,20 +1368,23 @@ for cat in cats:
         min_value=0.0,
         step=10.0,
         value=float(limits_now.get(cat, 0.0)),
-        key=f"limit_{mk}_{cat}",  # уникальные ключи на месяц+категорию
+        key=f"limit_{ym}_{cat}",  # уникальные ключи на месяц+категорию
     )
 
 # 4) Кнопки управления (Save / Clear)
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("Save", type="primary", key=f"save_limits_{mk}"):
+    if st.button(t("buttons.save", lang, default="Save"), key=f"save_limits_{mk}"):
         _save_limits(mk, values, limits_file)
-        st.session_state["_flash"] = ("Limits saved", "✅")
+        st.session_state["_flash"] = (t("saved", lang, default="Saved!"), "✅")
         st.cache_data.clear()
         st.rerun()
 
 with col2:
-    if st.button("Clear month limits", key=f"clear_limits_{mk}"):
+    if st.button(
+        t("limits.clear_month", lang, default="Clear month limits"),
+        key=f"clear_limits_{mk}",
+    ):
         _save_limits(mk, {}, limits_file)
         st.session_state["_flash"] = ("Limits cleared", "🗑️")
         st.cache_data.clear()
@@ -1279,10 +1415,10 @@ with exp_col1:
 # --- Import CSV
 with exp_col2:
     up = st.file_uploader(
-        t("upload_csv", lang, default="Upload CSV"),
+        t("limits.import_csv", lang, default="Upload CSV"),
         type=["csv"],
         key=f"ul_limits_csv_{current_user}_{mk}",
-        help=t("upload_csv", lang, default="Upload CSV"),
+        help=t("limits.import", lang, default="Upload CSV"),
     )
 
     if up is not None:
