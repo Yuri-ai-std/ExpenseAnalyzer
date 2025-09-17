@@ -3,6 +3,7 @@ import sqlite3
 from datetime import date
 from datetime import date as _date
 from datetime import datetime
+from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -308,6 +309,26 @@ def get_categories() -> list[str]:
         return []
 
 
+def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
+    """
+    Возвращает:
+      - cats: список техключей, отсортированный по локализованной подписи
+      - labels: словарь {ключ -> локализованная подпись}
+    """
+    tl = partial(t, lang=lang)
+    try:
+        cats = list(get_categories())
+    except Exception:
+        cats = []
+    if not cats:
+        cats = list(BASE_CATEGORIES)
+
+    # словарь переводов по ключам messages: "categories.<key>"
+    labels = {c: tl(f"categories.{c}", default=c) for c in set(cats)}
+    cats_sorted = sorted(labels.keys(), key=lambda c: labels[c].lower())
+    return cats_sorted, labels
+
+
 # ---- язык интерфейса ----
 st.session_state.setdefault("lang", "en")
 lang = st.session_state["lang"]
@@ -580,15 +601,12 @@ elif choice == "add_expense":
         )
 
     # категории
-    try:
-        cats = list(get_categories())
-    except Exception:
-        cats = []
+    cats, cat_labels = categories_ui(lang)
+    cat_label = lambda c: cat_labels.get(c, c)  # удобный вызов
 
-    if not cats:
-        cats = list(BASE_CATEGORIES)
-
-    cats = sorted(cats)
+    def cat_label_fn(c: Any) -> str:
+        # Всегда str: никаких Optional
+        return str(cat_labels.get(c, c))
 
     # ----- форма -----
     with st.form(f"add_form_{user}", clear_on_submit=False):
@@ -596,12 +614,17 @@ elif choice == "add_expense":
 
         mode = ss[keys["mode"]]
         if mode == MODE_CHOOSE:
+            opts = cats if len(cats) > 0 else [""]
+            index0 = 0
             cat_val = st.selectbox(
                 t("add_expense.choose_existing", lang, default="Choose category"),
-                options=cats,
-                index=0 if cats else None,
+                options=opts,
+                format_func=cat_label_fn,
+                index=index0,
                 key=keys["choose"],
             )
+            if not cats or cat_val == "":
+                cat_val = None
             new_val = ""
         else:
             new_val = st.text_input(
@@ -688,114 +711,142 @@ elif choice == "add_expense":
     # ---- таблица последних записей (как было у вас) ----
     render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=False, lang=lang)
 
-# ================= Browse & Filter =================
+# ================ Browse & Filter ================
 elif choice == "browse":
-    st.header(t("menu.browse", lang, default="Browse & Filter"))
-    st.write(
+    # Заголовок и подпись страницы
+    st.subheader(t("menu.browse", lang, default="Browse & Filter"))
+    st.caption(
         "🔎 "
-        + t("browse.placeholder", lang, default="Browse & Filter page (placeholder)")
+        + t("browse.placeholder", lang, default="Page Browse & Filter (placeholder)")
     )
 
-    # Загружаем все данные
-    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    base_df = get_expenses_df(db_path=db_path)
-    if base_df.empty:
-        st.info(t("no_expenses_found", lang, default="No expenses found."))
-        st.stop()
+    # ---------- Подготовка исходных значений (safe defaults) ----------
+    base_df = load_df()  # без ограничений дат
 
-    df = base_df.copy()
-    if not pd.api.types.is_datetime64_any_dtype(df["date"]):
-        df["date"] = pd.to_datetime(df["date"])
+    if base_df is not None and not base_df.empty:
+        base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
+        min_date = base_df["date"].min().date()
+        max_date = base_df["date"].max().date()
+        cats_all = sorted(c for c in base_df["category"].dropna().unique().tolist())
+        min_amount = float(base_df["amount"].min())
+        max_amount = float(base_df["amount"].max())
+    else:
+        # если данных нет — безопасные дефолты
+        today = date.today()
+        min_date = today.replace(day=1)
+        max_date = today
+        cats_all = []
+        min_amount = 0.0
+        max_amount = 0.0
 
-    # Все категории из базы
-    cats_all = sorted(get_categories() or df["category"].dropna().unique().tolist())
-    min_date = df["date"].min().date()
-    max_date = df["date"].max().date()
-    min_amt = float(df["amount"].min())
-    max_amt = float(df["amount"].max())
+    # значения по умолчанию из session_state (если уже были выбраны ранее)
+    cats_selected = st.session_state.get("filter_categories", cats_all)
+    search_value = st.session_state.get("filter_search", "")
 
-    # --- Фильтры ---
+    # ---------- Фильтры ----------
     with st.form("filter_form", clear_on_submit=False):
         c1, c2 = st.columns(2)
         with c1:
             start = st.date_input(
-                "Start",
+                t("common.start", lang, default="Start"),
                 value=min_date,
                 min_value=min_date,
                 max_value=max_date,
-                key="filter_start_date",  # Уникальный ключ для поля Start
+                key="filter_start_date",
             )
         with c2:
             end = st.date_input(
-                "End",
+                t("common.end", lang, default="End"),
                 value=max_date,
                 min_value=min_date,
                 max_value=max_date,
-                key="filter_end_date",  # Уникальный ключ для поля End
+                key="filter_end_date",
             )
 
         c3, c4 = st.columns([2, 1])
         with c3:
             sel_cats = st.multiselect(
-                "Category",
+                t("col.category", lang, default="Category"),
                 options=cats_all,
-                default=cats_all,
-                placeholder="Select categories...",
+                default=cats_selected,
+                placeholder=t(
+                    "browse.select_categories", lang, default="Select categories..."
+                ),
+                key="filter_categories",
             )
         with c4:
-            search = st.text_input("Search (description contains)", value="")
+            search = st.text_input(
+                t(
+                    "browse.search_contains",
+                    lang,
+                    default="Search (description contains)",
+                ),
+                value=search_value,
+                key="filter_search",
+            )
 
         a1, a2 = st.columns(2)
         with a1:
             amt_min = st.number_input(
-                "Min amount", value=float(f"{min_amt:.2f}"), step=1.0
+                t("browse.min_amount", lang, default="Min amount"),
+                value=min_amount,
+                step=1.0,
+                key="filter_min_amount",
             )
         with a2:
             amt_max = st.number_input(
-                "Max amount", value=float(f"{max_amt:.2f}"), step=1.0
+                t("browse.max_amount", lang, default="Max amount"),
+                value=max_amount,
+                step=1.0,
+                key="filter_max_amount",
             )
 
-        fcol1, fcol2 = st.columns([1, 1])
-        run = fcol1.form_submit_button(t("apply", lang, default="Apply"))
-        reset = fcol2.form_submit_button(t("reset", lang, default="Reset"))
+        fcol1, fcol2 = st.columns(2)
+        run = fcol1.form_submit_button(t("common.apply", lang, default="Apply"))
+        reset = fcol2.form_submit_button(t("browse.reset", lang, default="Reset"))
 
+    # ---------- Применение фильтров ----------
     if reset:
-        st.cache_data.clear()
-        st.rerun()
+        st.session_state["filter_categories"] = cats_all
+        st.session_state["filter_search"] = ""
+        cats_selected = cats_all
+        search_value = ""
+        amt_min = min_amount
+        amt_max = max_amount
+        start = min_date
+        end = max_date
 
-    # --- Применение фильтров ---
-    f = df.copy()
-    f = f[(f["date"].dt.date >= start) & (f["date"].dt.date <= end)]
-    if sel_cats:
-        f = f[f["category"].isin(sel_cats)]
-    if search.strip():
-        s = search.strip().lower()
-        f = f[f["description"].fillna("").str.lower().str.contains(s)]
-    f = f[(f["amount"] >= amt_min) & (f["amount"] <= amt_max)]
+    f = base_df.copy()
 
-    if f.empty:
-        st.warning(
-            t(
-                "no_expenses_found",
-                lang,
-                default="No expenses found for selected filters.",
-            )
-        )
-        st.stop()
+    if not f.empty:
+        # даты
+        f = f[(f["date"].dt.date >= start) & (f["date"].dt.date <= end)]
+        # категории
+        if cats_selected:
+            f = f[f["category"].isin(cats_selected)]
+        # поиск по описанию
+        sv = (search_value or "").strip().lower()
+        if sv:
+            f = f[f["description"].astype(str).str.lower().str.contains(sv, na=False)]
+        # суммы
+        f = f[(f["amount"] >= float(amt_min)) & (f["amount"] <= float(amt_max))]
 
-    # --- KPI ---
+    # ---------- KPI ----------
     k1, k2, k3 = st.columns(3)
     with k1:
-        st.metric(t("total", lang, default="Total"), f"{f['amount'].sum():.2f}")
+        st.metric(t("kpi.total", lang, default="Total"), f"{f['amount'].sum():.2f}")
     with k2:
-        st.metric(t("operations", lang, default="Operations"), len(f))
+        st.metric(t("kpi.operations", lang, default="Operations"), f"{len(f)}")
     with k3:
-        st.metric(t("average", lang, default="Average"), f"{f['amount'].mean():.2f}")
+        st.metric(
+            t("kpi.average", lang, default="Average"), f"{f['amount'].mean():.2f}"
+        )
 
     st.divider()
 
-    # --- Опции отображения/очистки ---
+    # ---------- Опции отображения ----------
     st.subheader(t("browse.view_options", lang, default="View options"))
+
     col_opts, _ = st.columns([1, 3])
     with col_opts:
         rm_dups = st.checkbox(
@@ -806,227 +857,260 @@ elif choice == "browse":
                 lang,
                 default="Remove rows that are exact duplicates (date, category, amount, description).",
             ),
+            key="opt_remove_dups",
         )
         newest_first = st.checkbox(
             t("browse.newest_first", lang, default="Newest first"),
             value=True,
+            key="opt_newest_first",
         )
 
-    # --- Подготовка данных к показу ---
-    f_disp = f.copy()
-
-    # 1) Удаление точных дубликатов (если включено)
-    if rm_dups:
-        f_disp = f_disp.drop_duplicates(
-            subset=["date", "category", "amount", "description"],
-            keep="last",
-        )
-
-    # 2) Сортировка по дате
-    f_disp["date"] = pd.to_datetime(f_disp["date"], errors="coerce")
-    f_disp = f_disp.sort_values("date", ascending=not newest_first).reset_index(
-        drop=True
+    # подготовка данных к показу (ВАША логика)
+    f_disp = prepare_df_for_view(f, remove_dups=rm_dups, newest_first=newest_first)
+    f_show = f_disp.copy()
+    f_show["date"] = pd.to_datetime(f_show["date"], errors="coerce").dt.strftime(
+        "%Y-%m-%d"
     )
 
-    # 3) Копия для красивого показа дат как YYYY-MM-DD
-    f_show = f_disp.copy()
-    f_show["date"] = f_show["date"].dt.strftime("%Y-%m-%d")
-
-    # --- Таблица ---
+    # таблица
     st.dataframe(
         f_show,
         width="stretch",
         hide_index=True,
         column_config={
-            "amount": st.column_config.NumberColumn("Amount", format="%.2f"),
-            "date": st.column_config.DatetimeColumn("Date", format="YYYY-MM-DD"),
+            "amount": st.column_config.NumberColumn(
+                t("col.amount", lang, default="Amount"), format="%.2f"
+            ),
+            "date": st.column_config.DatetimeColumn(
+                t("col.date", lang, default="Date"), format="YYYY-MM-DD"
+            ),
         },
     )
 
     st.divider()
 
-    # --- Экспорт данных ---
+    # ---------- Экспорт ----------
     st.subheader(t("browse.export_data", lang, default="Export Data"))
+
     csv_bytes = f_disp.to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="📥 Download CSV",
+        label="📥 " + t("common.download_csv", lang, default="Download CSV"),
         data=csv_bytes,
         file_name="expenses_filtered.csv",
         mime="text/csv",
+        key="btn_download_csv",
     )
 
     export_df_to_excel_button(f_disp, filename="expenses_filtered.xlsx")
 
 
-# ================= Charts & Analytics =================
+# ================ Charts ================
 elif choice == "charts":
-    st.header(t("menu.charts", lang, default="Charts"))
-    st.write("📈 Charts page (placeholder)")
-
-    # ---- Контроли периода ----
-    colp1, colp2, colp3 = st.columns([1.4, 1.4, 1])
-
-    start_c = colp1.date_input(
-        t("start", lang, default="Start"),
-        value=_date(_date.today().year, _date.today().month, 1),
-        key="charts_start",  # уникальный ключ
+    # Заголовок и подпись
+    st.subheader(t("menu.charts", lang, default="Charts"))
+    st.caption(
+        "📈 " + t("charts.placeholder", lang, default="Charts page (placeholder)")
     )
 
-    end_c = colp2.date_input(
-        t("end", lang, default="End"),
-        value=_date.today(),
-        key="charts_end",  # уникальный ключ
-    )
+    SCALE = 100.0  # суммы хранятся в центах → для отображения делим на 100
 
-    apply_c = colp3.button(t("apply", lang, default="Apply"), width="stretch")
+    # ---------- Исходные данные ----------
+    base_df = load_df()
+    if base_df is not None and not base_df.empty:
+        base_df = base_df.copy()
+        base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
+        ch_min_date = base_df["date"].min().date()
+        ch_max_date = base_df["date"].max().date()
+        ch_cats_all = sorted(c for c in base_df["category"].dropna().unique().tolist())
+    else:
+        today = date.today()
+        ch_min_date = today.replace(day=1)
+        ch_max_date = today
+        ch_cats_all = []
 
-    # Грузим данные по периоду
-    df_raw = load_df(str(start_c), str(end_c)) if apply_c or True else load_df()
-    if df_raw.empty:
-        st.info(
-            t(
-                "no_expenses_found",
-                lang,
-                default="No expenses found for selected period.",
+    # ---------- Фильтры ----------
+    with st.form("charts_filter", clear_on_submit=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            ch_start = st.date_input(
+                t("common.start", lang, default="Start"),
+                value=ch_min_date,
+                min_value=ch_min_date,
+                max_value=ch_max_date,
+                key="charts_start",
             )
-        )
-        st.stop()
-
-    # Очищаем/нормализуем и удаляем возможные дубликаты показа
-    df = prepare_df_for_view(df_raw, remove_dups=True)
-
-    # ---- Быстрые фильтры по категориям ----
-    cats_all = sorted(df["category"].astype(str).unique().tolist())
-    sel_cats = st.multiselect(
-        t("category", lang, default="Category"),
-        options=cats_all,
-        default=cats_all,
-    )
-    if sel_cats:
-        df = df[df["category"].isin(sel_cats)]
-    if df.empty:
-        st.info(
-            t(
-                "no_expenses_found",
-                lang,
-                default="No expenses found for selected period.",
+        with c2:
+            ch_end = st.date_input(
+                t("common.end", lang, default="End"),
+                value=ch_max_date,
+                min_value=ch_min_date,
+                max_value=ch_max_date,
+                key="charts_end",
             )
-        )
-        st.stop()
 
-    st.divider()
-
-    # =========================
-    #  A) Бар-чарт по категориям
-    # =========================
-    st.subheader(t("dashboard.by_category", lang, default="By category"))
-    cat_sum = (
-        df.groupby("category", as_index=False)
-        .agg(amount=("amount", "sum"))  # <- получаем DataFrame с колонкой amount
-        .sort_values(
-            "amount", ascending=False
-        )  # <- сортировка DataFrame (без 'by=' для Series)
-    )
-
-    cat_chart = (
-        alt.Chart(cat_sum)
-        .mark_bar()
-        .encode(
-            x=alt.X(
-                "category:N", title=t("category", lang, default="Category"), sort="-y"
-            ),
-            y=alt.Y("amount:Q", title=t("total", lang, default="Total")),
-            tooltip=[
-                alt.Tooltip(
-                    "category:N", title=t("category", lang, default="Category")
+        c3, _ = st.columns([2, 1])
+        with c3:
+            ch_cats = st.multiselect(
+                t("col.category", lang, default="Category"),
+                options=ch_cats_all,
+                default=ch_cats_all,
+                placeholder=t(
+                    "browse.select_categories", lang, default="Select categories..."
                 ),
-                alt.Tooltip(
-                    "amount:Q", title=t("total", lang, default="Total"), format=".2f"
-                ),
-            ],
-        )
-        .properties(height=360)
+                key="charts_categories",
+            )
+
+        f1, f2 = st.columns(2)
+        run_charts = f1.form_submit_button(t("common.apply", lang, default="Apply"))
+        reset_charts = f2.form_submit_button(t("browse.reset", lang, default="Reset"))
+
+    # ---------- Применение фильтров ----------
+    if reset_charts:
+        ch_start = ch_min_date
+        ch_end = ch_max_date
+        ch_cats = ch_cats_all
+
+    ch_df = base_df.copy()
+    if ch_df is not None and not ch_df.empty:
+        ch_df = ch_df[
+            (ch_df["date"].dt.date >= ch_start) & (ch_df["date"].dt.date <= ch_end)
+        ]
+        if ch_cats:
+            ch_df = ch_df[ch_df["category"].isin(ch_cats)]
+    else:
+        ch_df = pd.DataFrame(columns=["date", "category", "amount", "description"])
+
+    # --- Бар-чарт: суммы по категориям ---
+    bar_df = (
+        ch_df.groupby("category", dropna=False)["amount"].sum().div(SCALE).reset_index()
+        if not ch_df.empty
+        else pd.DataFrame({"category": [], "amount": []})
     )
-    st.altair_chart(cat_chart, use_container_width=True)
 
-    # =========================
-    #  B) Линия: динамика по датам
-    # =========================
-    st.subheader(t("charts.by_date", lang, default="By date"))
-    daily = (
-        df.groupby("date", as_index=False)
-        .agg(amount=("amount", "sum"))  # DataFrame
-        .sort_values("date")  # сортировка по дате
-    )
-
-    line_chart = (
-        alt.Chart(daily)
-        .mark_line(point=True)
-        .encode(
-            x=alt.X("date:T", title=t("date", lang, default="Date")),
-            y=alt.Y("amount:Q", title=t("total", lang, default="Total")),
-            tooltip=[
-                alt.Tooltip("date:T", title=t("date", lang, default="Date")),
-                alt.Tooltip(
-                    "amount:Q", title=t("total", lang, default="Total"), format=".2f"
-                ),
-            ],
-        )
-        .properties(height=360)
-    )
-    st.altair_chart(line_chart, use_container_width=True)
-
-    # =========================
-    #  C) (опционально) Pie-chart
-    # =========================
-    with st.expander(
-        t("charts.share_by_category", lang, default="Share by category (pie)")
-    ):
-        share = cat_sum.copy()
-        total_sum = float(share["amount"].sum()) or 1.0
-        share["share"] = share["amount"] / total_sum
-
-        pie = (
-            alt.Chart(share)
-            .mark_arc(innerRadius=60)  # пончиковая диаграмма
+    st.markdown("#### " + t("dashboard.by_category", lang, default="By category"))
+    if not bar_df.empty:
+        bar = (
+            alt.Chart(bar_df)
+            .mark_bar()
             .encode(
-                theta=alt.Theta("amount:Q"),
-                color=alt.Color(
-                    "category:N",
-                    legend=alt.Legend(title=t("category", lang, default="Category")),
+                x=alt.X(
+                    "category:N", title=t("col.category", lang, default="Category")
                 ),
+                y=alt.Y(
+                    "amount:Q",
+                    title=t("kpi.total", lang, default="Total"),
+                    axis=alt.Axis(format=".2f"),
+                ),  # 0.00, без разделителей тысяч
                 tooltip=[
                     alt.Tooltip(
-                        "category:N", title=t("category", lang, default="Category")
+                        "category:N", title=t("col.category", lang, default="Category")
                     ),
                     alt.Tooltip(
                         "amount:Q",
-                        title=t("total", lang, default="Total"),
-                        format=",.2f",
-                    ),
-                    alt.Tooltip(
-                        "share:Q", title=t("share", lang, default="Share"), format=".1%"
+                        title=t("kpi.total", lang, default="Total"),
+                        format=".2f",
                     ),
                 ],
             )
-            .properties(height=320)
+            .properties(height=300)
         )
-        st.altair_chart(pie, use_container_width=True)
+        st.altair_chart(bar, use_container_width=True)
+    else:
+        st.info(t("common.no_data", lang, default="No data to display."))
 
-    # =========================
-    #  D) Показ таблицы (без дублей)
-    # =========================
-    with st.expander(t("show_table", lang, default="Show data")):
+    # --- Лайн-чарт: суммы по датам ---
+    line_df = (
+        ch_df.assign(date=pd.to_datetime(ch_df["date"], errors="coerce"))
+        .groupby(pd.Grouper(key="date", freq="D"), dropna=False)["amount"]
+        .sum()
+        .div(SCALE)
+        .reset_index()
+        if not ch_df.empty
+        else pd.DataFrame({"date": [], "amount": []})
+    )
+
+    st.markdown("#### " + t("charts.by_date", lang, default="By date"))
+    if not line_df.empty:
+        line = (
+            alt.Chart(line_df)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("date:T", title=t("col.date", lang, default="Date")),
+                y=alt.Y(
+                    "amount:Q",
+                    title=t("kpi.total", lang, default="Total"),
+                    axis=alt.Axis(format=".2f"),
+                ),  # 0.00, без разделителей тысяч
+                tooltip=[
+                    alt.Tooltip("date:T", title=t("col.date", lang, default="Date")),
+                    alt.Tooltip(
+                        "amount:Q",
+                        title=t("kpi.total", lang, default="Total"),
+                        format=".2f",
+                    ),
+                ],
+            )
+            .properties(height=300)
+        )
+        st.altair_chart(line, use_container_width=True)
+    else:
+        st.info(t("common.no_data", lang, default="No data to display."))
+
+    # ---------- Экспандер: круговая по категориям ----------
+    with st.expander(
+        t("charts.share_by_category_pie", lang, default="Share by category (pie)"),
+        expanded=False,
+    ):
+        pie_df = (
+            ch_df.groupby("category", dropna=False)["amount"]
+            .sum()
+            .div(SCALE)
+            .reset_index()
+            if not ch_df.empty
+            else pd.DataFrame({"category": [], "amount": []})
+        )
+        if not pie_df.empty:
+            chart = (
+                alt.Chart(pie_df)
+                .mark_arc()
+                .encode(
+                    theta=alt.Theta("amount:Q"),
+                    color=alt.Color("category:N"),
+                    tooltip=[
+                        alt.Tooltip(
+                            "category:N",
+                            title=t("col.category", lang, default="Category"),
+                        ),
+                        alt.Tooltip(
+                            "amount:Q",
+                            title=t("kpi.total", lang, default="Total"),
+                            format=".2f",
+                        ),
+                    ],
+                )
+                .properties(height=300)
+            )
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info(t("common.no_data", lang, default="No data to display."))
+
+    # ---------- Экспандер: показать данные ----------
+    with st.expander(t("charts.show_data", lang, default="Show data"), expanded=False):
+        ch_show = ch_df.copy()
+        if not ch_show.empty:
+            ch_show["date"] = pd.to_datetime(
+                ch_show["date"], errors="coerce"
+            ).dt.strftime("%Y-%m-%d")
         st.dataframe(
-            (df.sort_values("date", ascending=False)).reset_index(drop=True),
+            ch_show,
             width="stretch",
             hide_index=True,
             column_config={
                 "amount": st.column_config.NumberColumn(
-                    t("amount", lang, default="Amount"), format="%.2f"
+                    t("col.amount", lang, default="Amount"), format="%.2f"
                 ),
                 "date": st.column_config.DatetimeColumn(
-                    t("date", lang, default="Date"), format="YYYY-MM-DD"
+                    t("col.date", lang, default="Date"), format="YYYY-MM-DD"
                 ),
             },
         )
