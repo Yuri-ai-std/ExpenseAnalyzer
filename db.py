@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import sqlite3
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 
 import pandas as pd
 
@@ -114,6 +115,26 @@ def get_conn(db_path: Optional[PathLike] = None):
     path = _resolve_db_path(db_path)
     ensure_db(path)
     return sqlite3.connect(path)
+
+
+def categories_and_version(db_path: PathLike | None = None) -> Tuple[list[str], float]:
+    """
+    Возвращает (cats, ver), где ver — max(mtime БД, mtime JSON-лимитов).
+    Удобно использовать как ключ кэша на UI.
+    """
+    path = Path(_resolve_db_path(db_path))
+    ensure_db(path)
+
+    lim_path = _limits_path_for_db(path)
+    ensure_limits_file(lim_path)  # создаст базовые лимиты, если нет
+
+    # сами категории (объединение БД ∪ лимиты)
+    cats = list_categories(path)
+
+    m_db = path.stat().st_mtime if path.exists() else 0.0
+    m_lim = lim_path.stat().st_mtime if lim_path.exists() else 0.0
+    ver = max(m_db, m_lim)
+    return cats, ver
 
 
 def list_categories(db_path: Optional[PathLike] = None) -> List[str]:

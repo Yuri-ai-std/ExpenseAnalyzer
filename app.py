@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 from datetime import date
 from datetime import date as _date
@@ -7,7 +8,7 @@ from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, cast
+from typing import Any, Dict, Tuple, cast
 
 import altair as alt
 import pandas as pd
@@ -191,7 +192,7 @@ def _normalize_limits_json(obj: dict) -> dict[str, dict[str, float]]:
     return out
 
 
-def _month_key(date_value):
+def _mdonth_key(date_value):
     """
     Преобразует дату в строку формата YYYY-MM для работы с месячными лимитами
     """
@@ -239,12 +240,13 @@ def _col_labels(lang: str) -> dict[str, str]:
     }
 
 
-def render_table(df, cols, lang: str, **st_kwargs):
-    """
-    Срезает нужные колонки (по исходным ключам) и ПЕРЕИМЕНОВЫВАЕТ только для отображения.
-    Логику (группировки/сортировки) это не ломает.
-    """
-    df_disp = df.loc[:, cols].rename(columns=_col_labels(lang))
+def render_table(
+    df, cols, lang: str, *, labels: dict[str, str] | None = None, **st_kwargs
+):
+    df_disp = df.loc[:, cols]
+    if labels is not None:
+        df_disp = _localize_category_column(df_disp, labels)
+    df_disp = df_disp.rename(columns=_col_labels(lang))
     st.dataframe(df_disp, **st_kwargs)
 
 
@@ -270,8 +272,9 @@ def render_recent_expenses_table(
         cols=cols,
         lang=lang,
         hide_index=True,
-        width="stretch",  # или width="stretch", если вам так привычнее
-        height=360,  # опционально, для одинаковой высоты
+        width="stretch",
+        height=360,
+        labels=cat_labels,
     )
 
 
@@ -282,7 +285,7 @@ print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m
 # ===== Вспомогательные функции =====
 @st.cache_data(ttl=10, show_spinner=False)
 def load_df(
-    start: str | None = None, end: str | None = None, _ver: int = 0
+    start: str | None = None, end: str | None = None, *, _ver: int = 0
 ) -> pd.DataFrame:
     """Загружает операции из БД активного пользователя как DataFrame.
     Параметр _ver нужен только для инвалидации кэша."""
@@ -299,34 +302,57 @@ def load_df(
 
 
 @st.cache_data(ttl=120)
-def get_categories() -> list[str]:
-    """Список категорий из БД (distinct), кэшируем на 2 мин."""
+def get_categories(
+    db_path: str = "expenses.db", ver: int = 0
+) -> Tuple[list[str], float]:
+    """
+    Список категорий из БД (distinct), кэшируем на 2 мин.
+    Кэш дополнительно «привязан» к:
+      - пути к БД (db_path),
+      - версии данных (ver),
+    и сбрасывается при изменении файла БД (mtime).
+    """
     try:
-        with sqlite3.connect("expenses.db") as conn:
+        db_mtime = os.path.getmtime(db_path)
+
+        with sqlite3.connect(db_path) as conn:
             rows = conn.execute("SELECT DISTINCT category FROM expenses").fetchall()
-        return [r[0] for r in rows if r and r[0]]
+            cats = [r[0] for r in rows if r and r[0]]
+
+        return cats, db_mtime
     except Exception:
-        return []
+        return [], 0.0
 
 
 def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
     """
     Возвращает:
-      - cats: список техключей, отсортированный по локализованной подписи
+      - cats: список ТЕХКЛЮЧЕЙ (отсортированный по локализованной подписи)
       - labels: словарь {ключ -> локализованная подпись}
     """
-    tl = partial(t, lang=lang)
-    try:
-        cats = list(get_categories())
-    except Exception:
-        cats = []
-    if not cats:
-        cats = list(BASE_CATEGORIES)
+    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
 
-    # словарь переводов по ключам messages: "categories.<key>"
-    labels = {c: tl(f"categories.{c}", default=c) for c in set(cats)}
-    cats_sorted = sorted(labels.keys(), key=lambda c: labels[c].lower())
-    return cats_sorted, labels
+    # 1) достаём категории из БД (поддержим обе сигнатуры get_categories)
+    try:
+        got = get_categories(
+            db_path=db_path
+        )  # может вернуть list[...] ИЛИ (list[...], mtime)
+        db_cats = got[0] if isinstance(got, tuple) else got
+    except Exception:
+        db_cats = []
+
+    # 2) UNION базовых и БД
+    all_cats = set(BASE_CATEGORIES) | {str(c).strip() for c in db_cats if c}
+
+    # 3) локализация (ключи в lower(), чтобы 'VISA' совпадало с 'visa' в messages)
+    def tr(key: str) -> str:
+        return t(f"categories.{key.lower()}", lang, default=key)
+
+    labels = {c: tr(c) for c in all_cats}
+
+    # 4) сортировка по локализованной подписи
+    cats_sorted = sorted(all_cats, key=lambda c: labels[c].lower())
+    return list(cats_sorted), labels
 
 
 # ---- язык интерфейса ----
@@ -382,6 +408,19 @@ def add_form_keys(user: str | None = None) -> dict[str, str]:
     }
 
 
+# ===== Версия данных (для инвалидирования кэша) =====
+
+
+def get_data_version() -> int:
+    """Текущая версия данных для инвалидации кэшей."""
+    return st.session_state.setdefault("data_version", 0)
+
+
+def bump_data_version() -> None:
+    """Инкремент версии данных — все кэшируемые загрузчики получают новый _ver."""
+    st.session_state["data_version"] = get_data_version() + 1
+
+
 # ---- запросить сброс (ставим только флажок!) ----
 def request_form_reset(keys: dict[str, str]) -> None:
     st.session_state[keys["reset"]] = True
@@ -402,16 +441,29 @@ def apply_form_reset(keys: dict[str, str]) -> None:
         ss[keys["date"]] = ss.get(keys["date"], _date.today())
 
 
-def bump_data_version() -> None:
-    """Инкремент версии данных, чтобы инвалидировать кэш загрузчиков таблиц."""
-    st.session_state["data_version"] = st.session_state.get("data_version", 0) + 1
-
-
 def render_add_expense_page(lang: str) -> None:
     ss = st.session_state
     user = current_user()  # получаем имя пользователя
     keys = add_form_keys(user)  # генерируем ключи формы
     apply_form_reset(keys)  # сброс формы для этого пользователя
+
+
+def cat_label_fn_factory(labels: dict[str, str]):
+    def _fn(c: object) -> str:  # Streamlit принимает Any; мы возвращаем str
+        s = "" if c is None else str(c)
+        return labels.get(s, s)
+
+    return _fn
+
+
+def _localize_category_column(df: pd.DataFrame, labels: dict[str, str]) -> pd.DataFrame:
+    """Вернёт копию df, где category отображается локализованной подписью.
+    Данные/экспорт не трогаем — только вид."""
+    if "category" not in df.columns:
+        return df
+    d = df.copy()
+    d["category"] = d["category"].map(lambda c: labels.get(str(c), str(c)))
+    return d
 
 
 # --- Меню ---
@@ -484,7 +536,7 @@ if choice == "dashboard":
     end_s = st.session_state["dash_end"]  # 'YYYY-MM-DD'
 
     # ----- Данные -----
-    raw_df = load_df(start_s, end_s)
+    raw_df = load_df(start_s, end_s, _ver=get_data_version())
     if raw_df.empty:
         st.info(
             t(
@@ -602,7 +654,7 @@ elif choice == "add_expense":
 
     # категории
     cats, cat_labels = categories_ui(lang)
-    cat_label = lambda c: cat_labels.get(c, c)  # удобный вызов
+    fmt = cat_label_fn_factory(cat_labels)
 
     def cat_label_fn(c: Any) -> str:
         # Всегда str: никаких Optional
@@ -618,9 +670,9 @@ elif choice == "add_expense":
             index0 = 0
             cat_val = st.selectbox(
                 t("add_expense.choose_existing", lang, default="Choose category"),
-                options=opts,
+                options=cats,
+                index=0 if cats else None,
                 format_func=cat_label_fn,
-                index=index0,
                 key=keys["choose"],
             )
             if not cats or cat_val == "":
@@ -704,6 +756,9 @@ elif choice == "add_expense":
                 description=(note or "").strip(),
             )
 
+            # ⬇️ Сразу после успешной записи ОБНОВЛЯЕМ версию данных:
+            bump_data_version()
+
             st.success(t("info.expense_added", lang, default="Expense added."))
             request_form_reset(keys)  # сброс поля/режима после добавления
             st.rerun()
@@ -739,8 +794,22 @@ elif choice == "browse":
         min_amount = 0.0
         max_amount = 0.0
 
-    # значения по умолчанию из session_state (если уже были выбраны ранее)
-    cats_selected = st.session_state.get("filter_categories", cats_all)
+    # --- Категории для UI (всегда: базовые + найденные в БД), с локализацией
+    cats, cat_labels = categories_ui(lang)  # ['entertainment', ...] + из БД
+    fmt = cat_label_fn_factory(
+        cat_labels
+    )  # (Any) -> str, безопасная функция форматирования
+    cats_all = list(cats)  # полный список ключей
+
+    # Значения по умолчанию из session_state (если были выбраны ранее)
+    _prev = st.session_state.get("filter_categories", cats_all)
+
+    # Оставляем только существующие ключи и сохраняем порядок как в cats
+    cats_selected = [c for c in _prev if c in set(cats_all)]
+    if not cats_selected:
+        cats_selected = cats_all
+
+    # Поисковая строка как и раньше
     search_value = st.session_state.get("filter_search", "")
 
     # ---------- Фильтры ----------
@@ -772,6 +841,7 @@ elif choice == "browse":
                 placeholder=t(
                     "browse.select_categories", lang, default="Select categories..."
                 ),
+                format_func=fmt,
                 key="filter_categories",
             )
         with c4:
@@ -871,6 +941,15 @@ elif choice == "browse":
     f_show["date"] = pd.to_datetime(f_show["date"], errors="coerce").dt.strftime(
         "%Y-%m-%d"
     )
+    f_show["category"] = f_show["category"].map(
+        lambda c: cat_labels.get(str(c), str(c))
+    )
+
+    # ✳️ ПЕРЕИМЕНОВЫВАЕМ ЗАГОЛОВКИ КОЛОНОК
+    col_names = _col_labels(
+        lang
+    )  # {'id': '...', 'date': '...', 'category': '...', ...}
+    f_show = f_show.rename(columns=col_names)
 
     # таблица
     st.dataframe(
@@ -878,11 +957,13 @@ elif choice == "browse":
         width="stretch",
         hide_index=True,
         column_config={
-            "amount": st.column_config.NumberColumn(
-                t("col.amount", lang, default="Amount"), format="%.2f"
+            col_names["amount"]: st.column_config.NumberColumn(
+                t("col.amount", lang, default="Amount"),
+                format="%.2f",
             ),
-            "date": st.column_config.DatetimeColumn(
-                t("col.date", lang, default="Date"), format="YYYY-MM-DD"
+            col_names["date"]: st.column_config.DatetimeColumn(
+                t("col.date", lang, default="Date"),
+                format="YYYY-MM-DD",
             ),
         },
     )
@@ -914,6 +995,16 @@ elif choice == "charts":
 
     SCALE = 100.0  # суммы хранятся в центах → для отображения делим на 100
 
+    # --- amounts utils (charts) ---
+    def _to_units(s: pd.Series) -> pd.Series:
+        """
+        Приводим суммы к валюте:
+        если максимум по модулю похож на суммы в центах (>= 1000),
+        делим на 100, иначе оставляем как есть.
+        """
+        s = pd.to_numeric(s, errors="coerce")
+        return s / 100.0 if s.abs().max() >= 1000 else s
+
     # ---------- Исходные данные ----------
     base_df = load_df()
     if base_df is not None and not base_df.empty:
@@ -927,6 +1018,24 @@ elif choice == "charts":
         ch_min_date = today.replace(day=1)
         ch_max_date = today
         ch_cats_all = []
+
+    # --- Категории для UI (база + найденные в БД), с локализацией
+    cats, cat_labels = categories_ui(
+        lang
+    )  # ключи: ['entertainment', ...] + то, что есть в БД
+    fmt = cat_label_fn_factory(cat_labels)  # безопасный форматтер (Any) -> str
+    ch_cats_all = list(cats)  # полный набор ключей для Charts
+
+    # имя колонки с локализованной категорией
+    CAT_LABEL = "cat_label"
+
+    # ранее выбранные категории (если были)
+    _prev = st.session_state.get("charts_categories", ch_cats_all)
+
+    # оставляем только существующие ключи
+    ch_cats_default = [c for c in _prev if c in set(ch_cats_all)]
+    if not ch_cats_default:
+        ch_cats_default = ch_cats_all
 
     # ---------- Фильтры ----------
     with st.form("charts_filter", clear_on_submit=False):
@@ -952,11 +1061,12 @@ elif choice == "charts":
         with c3:
             ch_cats = st.multiselect(
                 t("col.category", lang, default="Category"),
-                options=ch_cats_all,
+                options=cats,
                 default=ch_cats_all,
                 placeholder=t(
                     "browse.select_categories", lang, default="Select categories..."
                 ),
+                format_func=fmt,
                 key="charts_categories",
             )
 
@@ -982,10 +1092,16 @@ elif choice == "charts":
 
     # --- Бар-чарт: суммы по категориям ---
     bar_df = (
-        ch_df.groupby("category", dropna=False)["amount"].sum().div(SCALE).reset_index()
+        ch_df.groupby("category", dropna=False)["amount"]
+        .sum()
+        .pipe(_to_units)
+        .reset_index()
         if not ch_df.empty
         else pd.DataFrame({"category": [], "amount": []})
     )
+
+    # 👇 добавляем колонку с локализованной подписью (fmt: (key)->str у нас уже есть выше)
+    bar_df["cat_label"] = bar_df["category"].map(fmt)
 
     st.markdown("#### " + t("dashboard.by_category", lang, default="By category"))
     if not bar_df.empty:
@@ -993,17 +1109,20 @@ elif choice == "charts":
             alt.Chart(bar_df)
             .mark_bar()
             .encode(
+                # 👇 вместо сырого ключа category используем локализованную колонку
                 x=alt.X(
-                    "category:N", title=t("col.category", lang, default="Category")
+                    "cat_label:N",
+                    title=t("col.category", lang, default="Category"),
                 ),
                 y=alt.Y(
                     "amount:Q",
                     title=t("kpi.total", lang, default="Total"),
-                    axis=alt.Axis(format=".2f"),
-                ),  # 0.00, без разделителей тысяч
+                    axis=alt.Axis(format=".2f"),  # 0.00
+                ),
                 tooltip=[
                     alt.Tooltip(
-                        "category:N", title=t("col.category", lang, default="Category")
+                        "cat_label:N",
+                        title=t("col.category", lang, default="Category"),
                     ),
                     alt.Tooltip(
                         "amount:Q",
@@ -1023,7 +1142,7 @@ elif choice == "charts":
         ch_df.assign(date=pd.to_datetime(ch_df["date"], errors="coerce"))
         .groupby(pd.Grouper(key="date", freq="D"), dropna=False)["amount"]
         .sum()
-        .div(SCALE)
+        .pipe(_to_units)  # центы → валюта
         .reset_index()
         if not ch_df.empty
         else pd.DataFrame({"date": [], "amount": []})
@@ -1035,14 +1154,23 @@ elif choice == "charts":
             alt.Chart(line_df)
             .mark_line(point=True)
             .encode(
-                x=alt.X("date:T", title=t("col.date", lang, default="Date")),
+                x=alt.X(
+                    "date:T",
+                    title=t("col.date", lang, default="Date"),
+                    # при желании можно настроить формат оси даты:
+                    # axis=alt.Axis(format="%b %d"),
+                ),
                 y=alt.Y(
                     "amount:Q",
                     title=t("kpi.total", lang, default="Total"),
-                    axis=alt.Axis(format=".2f"),
-                ),  # 0.00, без разделителей тысяч
+                    axis=alt.Axis(format=".2f"),  # 0.00 без разделителей тысяч
+                ),
                 tooltip=[
-                    alt.Tooltip("date:T", title=t("col.date", lang, default="Date")),
+                    alt.Tooltip(
+                        "date:T",
+                        title=t("col.date", lang, default="Date"),
+                        format="%Y-%m-%d",
+                    ),
                     alt.Tooltip(
                         "amount:Q",
                         title=t("kpi.total", lang, default="Total"),
@@ -1064,7 +1192,7 @@ elif choice == "charts":
         pie_df = (
             ch_df.groupby("category", dropna=False)["amount"]
             .sum()
-            .div(SCALE)
+            .pipe(_to_units)
             .reset_index()
             if not ch_df.empty
             else pd.DataFrame({"category": [], "amount": []})
@@ -1096,7 +1224,7 @@ elif choice == "charts":
 
     # ---------- Экспандер: показать данные ----------
     with st.expander(t("charts.show_data", lang, default="Show data"), expanded=False):
-        ch_show = ch_df.copy()
+        ch_show = _localize_category_column(ch_df, cat_labels)
         if not ch_show.empty:
             ch_show["date"] = pd.to_datetime(
                 ch_show["date"], errors="coerce"
