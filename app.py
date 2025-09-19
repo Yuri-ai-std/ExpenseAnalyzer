@@ -23,6 +23,7 @@ from db import (
     get_expenses_df,
     list_categories,
 )
+from flash import flash, render_flash
 
 # CSV/аудит для лимитов
 from limits_tools import (
@@ -251,30 +252,39 @@ def render_table(
 
 
 def render_recent_expenses_table(
-    db_path, n: int = 10, *, show_title: bool = False, lang: str = "en"
+    db_path: str, n: int = 10, *, show_title: bool = False, lang: str = "en"
 ) -> None:
-    """Показывает последние n операций из указанной БД.
-    Сортировка как везде: новые сверху, дубликаты убираем.
-    """
     if show_title:
         st.subheader(t("recent_expenses", lang, default="Recent expenses"))
 
     raw_df = get_expenses_df(db_path=db_path)
     df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
-
-    # так как newest_first=True, новые строки сверху => берём .head(n)
     df_recent = df.head(n)
 
-    # Локализованный вывод таблицы
-    cols = ["id", "date", "category", "amount", "description"]
-    render_table(
+    # 🔹 Локальная локализация категорий + заголовков
+    _, cat_labels = categories_ui(lang)  # <- НЕТ внешних глобальных ссылок
+    df_recent = df_recent.copy()
+    if "category" in df_recent.columns:
+        df_recent["category"] = df_recent["category"].map(
+            lambda c: cat_labels.get(str(c), str(c))
+        )
+
+    # Заголовки столбцов
+    col_names = _col_labels(lang)
+    df_recent = df_recent.rename(columns=col_names)
+
+    st.dataframe(
         df_recent,
-        cols=cols,
-        lang=lang,
         hide_index=True,
         width="stretch",
-        height=360,
-        labels=cat_labels,
+        column_config={
+            "amount": st.column_config.NumberColumn(
+                t("col.amount", lang, default="Amount"), format="%.2f"
+            ),
+            "date": st.column_config.DatetimeColumn(
+                t("col.date", lang, default="Date"), format="YYYY-MM-DD"
+            ),
+        },
     )
 
 
@@ -334,9 +344,7 @@ def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
 
     # 1) достаём категории из БД (поддержим обе сигнатуры get_categories)
     try:
-        got = get_categories(
-            db_path=db_path
-        )  # может вернуть list[...] ИЛИ (list[...], mtime)
+        got = get_categories(db_path=db_path, ver=get_data_version())
         db_cats = got[0] if isinstance(got, tuple) else got
     except Exception:
         db_cats = []
@@ -490,6 +498,7 @@ if choice == "dashboard":
     st.write(
         "📊 " + t("dashboard.placeholder", lang, default="Dashboard page (placeholder)")
     )
+    render_flash()
 
     # ----- Фильтры по дате -----
     today = date.today()
@@ -605,6 +614,7 @@ if choice == "dashboard":
 elif choice == "add_expense":
     lang = st.session_state.get("lang", "en")
     st.header(t("menu.add_expense", lang, default="Add Expense"))
+    render_flash()
 
     # стабильные токены режима
     MODE_CHOOSE = "choose"
@@ -757,10 +767,13 @@ elif choice == "add_expense":
             )
 
             # ⬇️ Сразу после успешной записи ОБНОВЛЯЕМ версию данных:
+            st.cache_data.clear()  # сбрасываем кэши загрузчиков
             bump_data_version()
 
-            st.success(t("info.expense_added", lang, default="Expense added."))
-            request_form_reset(keys)  # сброс поля/режима после добавления
+            flash(
+                t("info.expense_added", lang, default="Expense added."), "success", 3.5
+            )
+            request_form_reset(keys)
             st.rerun()
 
     # ---- таблица последних записей (как было у вас) ----
@@ -774,9 +787,10 @@ elif choice == "browse":
         "🔎 "
         + t("browse.placeholder", lang, default="Page Browse & Filter (placeholder)")
     )
+    render_flash()
 
     # ---------- Подготовка исходных значений (safe defaults) ----------
-    base_df = load_df()  # без ограничений дат
+    base_df = load_df(_ver=get_data_version())  # без ограничений дат
 
     if base_df is not None and not base_df.empty:
         base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
@@ -992,6 +1006,7 @@ elif choice == "charts":
     st.caption(
         "📈 " + t("charts.placeholder", lang, default="Charts page (placeholder)")
     )
+    render_flash()
 
     SCALE = 100.0  # суммы хранятся в центах → для отображения делим на 100
 
@@ -1006,7 +1021,7 @@ elif choice == "charts":
         return s / 100.0 if s.abs().max() >= 1000 else s
 
     # ---------- Исходные данные ----------
-    base_df = load_df()
+    base_df = load_df(_ver=get_data_version())
     if base_df is not None and not base_df.empty:
         base_df = base_df.copy()
         base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
@@ -1246,6 +1261,7 @@ elif choice == "charts":
 # ================= Settings =================
 elif choice == "settings":
     st.header(t("menu.settings", lang, default="Settings"))
+    render_flash()
 
     # текущий язык (по умолчанию en)
     langs = ["en", "fr", "es"]
@@ -1564,9 +1580,16 @@ mk = _mk(month)
 cats = _categories_for_editor(db_path_str)
 limits_now = _load_limits(mk, limits_file)
 
+# 🆕 Локализация подписей категорий для UI + сортировка по переводу
+_, cat_labels = categories_ui(lang)  # уже есть в проекте, словарь {key -> label}
+# гарантируем подписи для всех cats (на случай редких ключей)
+for c in cats:
+    cat_labels.setdefault(c, t(f"categories.{c}", lang, default=c))
+cats = sorted(cats, key=lambda c: cat_labels[c].lower())
+
 # 3) Редактор лимитов
-user = current_user()  # получаем текущего пользователя
-ym = current_limits_month()  # получаем текущий месяц в формате YYYY-MM
+user = current_user()
+ym = current_limits_month()
 
 st.write(
     f"{t('profile.title', lang, default='User / Profile').split(' / ')[0]}: {user} • "
@@ -1575,12 +1598,14 @@ st.write(
 
 values: dict[str, float] = {}
 for cat in cats:
+    # 🆕 подпись поля — локализованная
+    label = cat_labels.get(cat, cat)
     values[cat] = st.number_input(
-        cat,
+        label,
         min_value=0.0,
         step=10.0,
         value=float(limits_now.get(cat, 0.0)),
-        key=f"limit_{ym}_{cat}",  # уникальные ключи на месяц+категорию
+        key=f"limit_{ym}_{cat}",
     )
 
 # 4) Кнопки управления (Save / Clear)
