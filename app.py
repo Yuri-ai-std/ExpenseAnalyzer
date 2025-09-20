@@ -74,13 +74,16 @@ BASE_CATEGORIES = [
 st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH
 st.session_state["ACTIVE_LIMITS_PATH"] = str(ACTIVE_LIMITS_PATH)
 
-# ---- flash-toast from previous run ----
-_flash = st.session_state.pop("_flash", None)
-if _flash:
-    # _flash: tuple[str, str|None] -> (message, icon)
-    msg, icon = (_flash + (None,))[:2]
-    st.toast(msg, icon=icon)
+# ---- legacy _flash -> new flash shim ----
+_legacy = st.session_state.pop("_flash", None)
+if _legacy:
+    from flash import flash
 
+    msg, icon = (_legacy + (None,))[:2]
+    level = {"✅": "success", "ℹ️": "info", "⚠️": "warning", "❌": "error"}.get(
+        icon, "info"
+    )
+    flash(str(msg), level, 3.0)
 
 # ---- Active user & paths (single source of truth) ----
 
@@ -295,19 +298,27 @@ print(f"\n🔄 Streamlit перезапущен: {datetime.now().strftime('%Y-%m
 # ===== Вспомогательные функции =====
 @st.cache_data(ttl=10, show_spinner=False)
 def load_df(
-    start: str | None = None, end: str | None = None, *, _ver: int = 0
+    db_path: str,  # <— НОВОЕ: путь к БД теперь часть ключа кэша
+    start: str | None = None,
+    end: str | None = None,
+    *,
+    _ver: int = 0,
 ) -> pd.DataFrame:
-    """Загружает операции из БД активного пользователя как DataFrame.
-    Параметр _ver нужен только для инвалидации кэша."""
-    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path, start_date=start, end_date=end)
-    # ↓ ваш существующий код нормализации колонок
+    """
+    Загружает операции из БД как DataFrame.
+    db_path входит в ключ кэша — смена профиля всегда даёт свежие данные.
+    Параметр _ver используется только для инвалидации кэша.
+    """
+    df = get_expenses_df(db_path, start_date=start, end_date=end)
+
     expected = ["date", "category", "amount", "description"]
     for col in expected:
         if col not in df.columns:
             df[col] = pd.NA
+
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
+
     return df.dropna(subset=["date", "amount"])
 
 
@@ -499,6 +510,11 @@ if choice == "dashboard":
         "📊 " + t("dashboard.placeholder", lang, default="Dashboard page (placeholder)")
     )
     render_flash()
+    lang = st.session_state.get("lang", "en")
+    cats, cat_labels = categories_ui(lang)
+
+    def fmt_cat(key: str) -> str:
+        return cat_labels.get(str(key), str(key))
 
     # ----- Фильтры по дате -----
     today = date.today()
@@ -544,8 +560,12 @@ if choice == "dashboard":
     start_s = st.session_state["dash_start"]  # 'YYYY-MM-DD'
     end_s = st.session_state["dash_end"]  # 'YYYY-MM-DD'
 
-    # ----- Данные -----
-    raw_df = load_df(start_s, end_s, _ver=get_data_version())
+    # ---- Данные ----
+    lang = st.session_state.get("lang", "en")
+    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
+
+    raw_df = load_df(db_path, start_s, end_s, _ver=get_data_version())
+
     if raw_df.empty:
         st.info(
             t(
@@ -586,9 +606,12 @@ if choice == "dashboard":
         .head(5)
     )
 
+    # локализуем подписи категорий
+    last5_local = _localize_category_column(last5, cat_labels)
+
     show_cols = ["date", "category", "amount", "description"]
     render_table(
-        last5,
+        last5_local,
         cols=show_cols,
         lang=lang,
         hide_index=True,
@@ -605,6 +628,9 @@ if choice == "dashboard":
         .rename("total")
         .to_frame()
     )
+    # локализуем подписи категорий в индексе
+    cat_totals.index = cat_totals.index.map(lambda k: cat_labels.get(str(k), str(k)))
+
     st.bar_chart(cat_totals, use_container_width=True)
 
     # ----- Последние операции -----
@@ -790,7 +816,8 @@ elif choice == "browse":
     render_flash()
 
     # ---------- Подготовка исходных значений (safe defaults) ----------
-    base_df = load_df(_ver=get_data_version())  # без ограничений дат
+    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
+    base_df = load_df(db_path, _ver=get_data_version())  # без ограничений дат
 
     if base_df is not None and not base_df.empty:
         base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
@@ -1008,141 +1035,81 @@ elif choice == "charts":
     )
     render_flash()
 
-    SCALE = 100.0  # суммы хранятся в центах → для отображения делим на 100
+    lang = st.session_state.get("lang", "en")
+    cats, cat_labels = categories_ui(lang)
 
-    # --- amounts utils (charts) ---
-    def _to_units(s: pd.Series) -> pd.Series:
-        """
-        Приводим суммы к валюте:
-        если максимум по модулю похож на суммы в центах (>= 1000),
-        делим на 100, иначе оставляем как есть.
-        """
-        s = pd.to_numeric(s, errors="coerce")
-        return s / 100.0 if s.abs().max() >= 1000 else s
+    # 0) исходные данные
+    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
+    df = load_df(db_path, _ver=get_data_version()).copy()
+    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
 
-    # ---------- Исходные данные ----------
-    base_df = load_df(_ver=get_data_version())
-    if base_df is not None and not base_df.empty:
-        base_df = base_df.copy()
-        base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
-        ch_min_date = base_df["date"].min().date()
-        ch_max_date = base_df["date"].max().date()
-        ch_cats_all = sorted(c for c in base_df["category"].dropna().unique().tolist())
+    # если у вас есть фильтры по датам/категориям выше — применяйте их здесь,
+    # чтобы ch_df уже соответствовал выбранному диапазону/категориям
+    ch_df = df.copy()
+
+    # 1) локализация категорий (fmt: key -> label)
+    def _fmt_cat(k: str) -> str:
+        return cat_labels.get(k, k)
+
+    # 2) агрегаты — БЕЗ масштабирования /100
+    # --- By category --------------------------------------------------------------
+    if not ch_df.empty:
+        bar_df = ch_df.groupby("category", dropna=False, as_index=False).agg(
+            total=("amount", "sum")
+        )
     else:
-        today = date.today()
-        ch_min_date = today.replace(day=1)
-        ch_max_date = today
-        ch_cats_all = []
+        bar_df = pd.DataFrame({"category": [], "total": []})
 
-    # --- Категории для UI (база + найденные в БД), с локализацией
-    cats, cat_labels = categories_ui(
-        lang
-    )  # ключи: ['entertainment', ...] + то, что есть в БД
-    fmt = cat_label_fn_factory(cat_labels)  # безопасный форматтер (Any) -> str
-    ch_cats_all = list(cats)  # полный набор ключей для Charts
+    # подписи категорий (локализация)
+    bar_df["cat_label"] = bar_df["category"].map(_fmt_cat)
 
-    # имя колонки с локализованной категорией
-    CAT_LABEL = "cat_label"
-
-    # ранее выбранные категории (если были)
-    _prev = st.session_state.get("charts_categories", ch_cats_all)
-
-    # оставляем только существующие ключи
-    ch_cats_default = [c for c in _prev if c in set(ch_cats_all)]
-    if not ch_cats_default:
-        ch_cats_default = ch_cats_all
-
-    # ---------- Фильтры ----------
-    with st.form("charts_filter", clear_on_submit=False):
-        c1, c2 = st.columns(2)
-        with c1:
-            ch_start = st.date_input(
-                t("common.start", lang, default="Start"),
-                value=ch_min_date,
-                min_value=ch_min_date,
-                max_value=ch_max_date,
-                key="charts_start",
-            )
-        with c2:
-            ch_end = st.date_input(
-                t("common.end", lang, default="End"),
-                value=ch_max_date,
-                min_value=ch_min_date,
-                max_value=ch_max_date,
-                key="charts_end",
-            )
-
-        c3, _ = st.columns([2, 1])
-        with c3:
-            ch_cats = st.multiselect(
-                t("col.category", lang, default="Category"),
-                options=cats,
-                default=ch_cats_all,
-                placeholder=t(
-                    "browse.select_categories", lang, default="Select categories..."
-                ),
-                format_func=fmt,
-                key="charts_categories",
-            )
-
-        f1, f2 = st.columns(2)
-        run_charts = f1.form_submit_button(t("common.apply", lang, default="Apply"))
-        reset_charts = f2.form_submit_button(t("browse.reset", lang, default="Reset"))
-
-    # ---------- Применение фильтров ----------
-    if reset_charts:
-        ch_start = ch_min_date
-        ch_end = ch_max_date
-        ch_cats = ch_cats_all
-
-    ch_df = base_df.copy()
-    if ch_df is not None and not ch_df.empty:
-        ch_df = ch_df[
-            (ch_df["date"].dt.date >= ch_start) & (ch_df["date"].dt.date <= ch_end)
-        ]
-        if ch_cats:
-            ch_df = ch_df[ch_df["category"].isin(ch_cats)]
+    # --- By date (дневная агрегация) ---------------------------------------------
+    if not ch_df.empty:
+        line_df = (
+            ch_df.assign(date=ch_df["date"].dt.floor("D"))
+            .groupby("date", as_index=False)
+            .agg(total=("amount", "sum"))
+        )
     else:
-        ch_df = pd.DataFrame(columns=["date", "category", "amount", "description"])
+        line_df = pd.DataFrame({"date": [], "total": []})
 
-    # --- Бар-чарт: суммы по категориям ---
-    bar_df = (
-        ch_df.groupby("category", dropna=False)["amount"]
-        .sum()
-        .pipe(_to_units)
-        .reset_index()
-        if not ch_df.empty
-        else pd.DataFrame({"category": [], "amount": []})
-    )
+    # 3) sanity-check на время отладки (можно потом удалить)
+    try:
+        if not ch_df.empty:
+            total_raw = float(ch_df["amount"].sum())
+            total_chart = float(bar_df["total"].sum())
+            if abs(total_chart - total_raw) > 1e-6:
+                st.warning(
+                    "Charts total != raw total (проверь масштабирование/фильтры)"
+                )
+    except Exception:
+        pass
 
-    # 👇 добавляем колонку с локализованной подписью (fmt: (key)->str у нас уже есть выше)
-    bar_df["cat_label"] = bar_df["category"].map(fmt)
-
+    # 4) ВИЗУАЛИЗАЦИИ
     st.markdown("#### " + t("dashboard.by_category", lang, default="By category"))
     if not bar_df.empty:
         bar = (
             alt.Chart(bar_df)
             .mark_bar()
             .encode(
-                # 👇 вместо сырого ключа category используем локализованную колонку
                 x=alt.X(
-                    "cat_label:N",
-                    title=t("col.category", lang, default="Category"),
+                    "cat_label:N", title=t("col.category", lang, default="Category")
                 ),
                 y=alt.Y(
-                    "amount:Q",
+                    "total:Q",
                     title=t("kpi.total", lang, default="Total"),
-                    axis=alt.Axis(format=".2f"),  # 0.00
+                    axis=alt.Axis(format=",.2f"),
                 ),
                 tooltip=[
                     alt.Tooltip(
-                        "cat_label:N",
-                        title=t("col.category", lang, default="Category"),
+                        "cat_label:N", title=t("col.category", lang, default="Category")
                     ),
                     alt.Tooltip(
-                        "amount:Q",
+                        "total:Q",
                         title=t("kpi.total", lang, default="Total"),
-                        format=".2f",
+                        format=",.2f",
                     ),
                 ],
             )
@@ -1152,52 +1119,33 @@ elif choice == "charts":
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
 
-    # --- Лайн-чарт: суммы по датам ---
-    line_df = (
-        ch_df.assign(date=pd.to_datetime(ch_df["date"], errors="coerce"))
-        .groupby(pd.Grouper(key="date", freq="D"), dropna=False)["amount"]
-        .sum()
-        .pipe(_to_units)  # центы → валюта
-        .reset_index()
-        if not ch_df.empty
-        else pd.DataFrame({"date": [], "amount": []})
-    )
-
     st.markdown("#### " + t("charts.by_date", lang, default="By date"))
     if not line_df.empty:
         line = (
             alt.Chart(line_df)
             .mark_line(point=True)
             .encode(
-                x=alt.X(
-                    "date:T",
-                    title=t("col.date", lang, default="Date"),
-                    # при желании можно настроить формат оси даты:
-                    # axis=alt.Axis(format="%b %d"),
-                ),
+                x=alt.X("date:T", title=t("charts.date", lang, default="Date")),
                 y=alt.Y(
-                    "amount:Q",
+                    "total:Q",
                     title=t("kpi.total", lang, default="Total"),
-                    axis=alt.Axis(format=".2f"),  # 0.00 без разделителей тысяч
+                    axis=alt.Axis(format=",.2f"),
                 ),
                 tooltip=[
+                    alt.Tooltip("date:T", title=t("charts.date", lang, default="Date")),
                     alt.Tooltip(
-                        "date:T",
-                        title=t("col.date", lang, default="Date"),
-                        format="%Y-%m-%d",
-                    ),
-                    alt.Tooltip(
-                        "amount:Q",
+                        "total:Q",
                         title=t("kpi.total", lang, default="Total"),
-                        format=".2f",
+                        format=",.2f",
                     ),
                 ],
             )
-            .properties(height=300)
+            .properties(height=280)
         )
         st.altair_chart(line, use_container_width=True)
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
+    # ============================================================================
 
     # ---------- Экспандер: круговая по категориям ----------
     with st.expander(
@@ -1207,7 +1155,7 @@ elif choice == "charts":
         pie_df = (
             ch_df.groupby("category", dropna=False)["amount"]
             .sum()
-            .pipe(_to_units)
+            .rename("amount")
             .reset_index()
             if not ch_df.empty
             else pd.DataFrame({"category": [], "amount": []})
@@ -1389,6 +1337,9 @@ with c3:
                     "profile.toast_created_switched", lang, default="Created & switched"
                 ),
             )
+            st.cache_data.clear()
+            bump_data_version()
+            st.rerun()
 
 # подпись с файлами активного пользователя
 dbf, limf = files_for(sel)
@@ -1447,6 +1398,9 @@ with c5:
                         default="Deleted, switched",
                     ),
                 )
+                st.cache_data.clear()
+                bump_data_version()
+                st.rerun()
             except Exception as e:
                 st.error(t("profile.deletion_failed", lang, default="Deletion failed."))
                 st.exception(e)
@@ -1482,6 +1436,9 @@ with c6:
                         default="Renamed & switched",
                     ),
                 )
+                st.cache_data.clear()
+                bump_data_version()
+                st.rerun()
             except Exception as e:
                 st.error(t("profile.rename_failed", lang, default="Rename failed."))
                 st.exception(e)
@@ -1489,6 +1446,9 @@ with c6:
 # быстрый свитч, если пользователь в select изменён
 if sel != current and st.session_state.get("settings_active_user") == sel:
     switch_user(sel, toast=t("profile.toast_switched", lang, default="Switched"))
+    st.cache_data.clear()
+    bump_data_version()
+    st.rerun()
 
 # --- Monthly limits ----------------------------------------------------------
 
