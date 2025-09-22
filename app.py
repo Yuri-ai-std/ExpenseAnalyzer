@@ -8,7 +8,7 @@ from functools import partial
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, Tuple, cast
+from typing import Any, Callable, Dict, Tuple, cast
 
 import altair as alt
 import pandas as pd
@@ -43,6 +43,29 @@ from utils import (
     save_monthly_limits,
 )
 
+
+def debug_hud(page_name: str, df=None, extra: dict | None = None):
+    lang = st.session_state.get("lang")
+    user = st.session_state.get("ACTIVE_USER")
+    db_path = st.session_state.get("ACTIVE_DB_PATH")
+    ver = (
+        st.session_state.get("__data_v__") or st.session_state.get("data_version") or 0
+    )
+    rows = len(df) if df is not None else "—"
+    bits = {
+        "page": page_name,
+        "lang": lang,
+        "user": user,
+        "db_path": db_path,
+        "data_ver": ver,
+        "rows": rows,
+        "ts": datetime.now().strftime("%H:%M:%S"),
+    }
+    if extra:
+        bits.update(extra)
+    st.caption(" | ".join(f"{k}={v}" for k, v in bits.items()))
+
+
 # Обход старых type-stubs streamlit для параметра width="stretch"
 st_any = cast(Any, st)
 
@@ -69,10 +92,13 @@ BASE_CATEGORIES = [
     "transport",
     "utilities",
 ]
+DEBUG_HUD = False  # True — чтобы видеть отладочные строки на странице
 
 # делаем пути видимыми для других модулей через session_state
 st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH
 st.session_state["ACTIVE_LIMITS_PATH"] = str(ACTIVE_LIMITS_PATH)
+
+LabelFn = Callable[[Any], str]
 
 # ---- legacy _flash -> new flash shim ----
 _legacy = st.session_state.pop("_flash", None)
@@ -345,6 +371,16 @@ def get_categories(
         return [], 0.0
 
 
+def make_category_formatter(labels: dict[str, str]):
+    """Создаёт функцию: key -> локализованная подпись"""
+
+    def fmt(val: Any) -> str:
+        s = str(val) if val is not None else ""
+        return labels.get(s, s)
+
+    return fmt
+
+
 def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
     """
     Возвращает:
@@ -372,6 +408,71 @@ def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
     # 4) сортировка по локализованной подписи
     cats_sorted = sorted(all_cats, key=lambda c: labels[c].lower())
     return list(cats_sorted), labels
+
+
+def make_fmt(labels: dict[str, str]) -> LabelFn:
+    """Возвращает безопасный форматтер: key -> локализованный label (str)."""
+
+    def _fmt(v: Any) -> str:
+        s = "" if v is None else str(v)
+        return labels.get(s, s)
+
+    return _fmt
+
+
+def get_filtered_df_for_period(
+    base_df: pd.DataFrame,
+    start: date,
+    end: date,
+    categories: list[str] | None = None,
+    search: str | None = None,
+    min_amount: float | None = None,
+    max_amount: float | None = None,
+) -> pd.DataFrame:
+    df = base_df.copy()
+    if df.empty:
+        return df
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
+    if categories:
+        df = df[df["category"].isin(categories)]
+    if search:
+        s = search.strip().lower()
+        if s:
+            df = df[df["description"].astype(str).str.lower().str.contains(s, na=False)]
+    if min_amount is not None:
+        df = df[df["amount"] >= float(min_amount)]
+    if max_amount is not None:
+        df = df[df["amount"] <= float(max_amount)]
+    return df
+
+
+def get_expenses_view(
+    *, db_path: str, start: str, end: str, lang: str, newest_first: bool = True
+) -> Tuple[pd.DataFrame, LabelFn, dict[str, str]]:
+    """
+    Единый пайплайн данных для всех страниц:
+      1) load_df(..., _ver=get_data_version())
+      2) prepare_df_for_view(..., remove_dups=True, newest_first=...)
+      3) локализация КОЛОНКИ 'category' (отображение; ключи в БД не трогаем)
+
+    Возвращает:
+      df  — нормализованные операции с локализованной колонкой 'category'
+      fmt — форматтер для категорий (Any -> str)
+      labels — словарь {key -> label}
+    """
+    ver = get_data_version()
+    raw = load_df(db_path, start, end, _ver=ver)
+    df = prepare_df_for_view(raw, remove_dups=True, newest_first=newest_first)
+
+    _, labels = categories_ui(lang)  # labels: {тех. ключ -> локализованный label}
+    fmt = make_fmt(labels)
+
+    if "category" in df.columns:
+        df = df.copy()
+        df["category"] = df["category"].map(fmt)
+
+    return df, fmt, labels
 
 
 # ---- язык интерфейса ----
@@ -467,12 +568,12 @@ def render_add_expense_page(lang: str) -> None:
     apply_form_reset(keys)  # сброс формы для этого пользователя
 
 
-def cat_label_fn_factory(labels: dict[str, str]):
-    def _fn(c: object) -> str:  # Streamlit принимает Any; мы возвращаем str
-        s = "" if c is None else str(c)
+def cat_label_fn_factory(labels: dict[str, str]) -> LabelFn:
+    def fmt(key: Any) -> str:  # <<< имя параметра "key", как ожидает тип
+        s = "" if key is None else str(key)
         return labels.get(s, s)
 
-    return _fn
+    return fmt
 
 
 def _localize_category_column(df: pd.DataFrame, labels: dict[str, str]) -> pd.DataFrame:
@@ -503,20 +604,28 @@ choice = st.sidebar.radio(
     key="sidebar_choice",
 )
 
-# ----- Dashboard -----
+# ------ Dashboard ------
 if choice == "dashboard":
     st.header(t("menu.dashboard", lang, default="Dashboard"))
     st.write(
         "📊 " + t("dashboard.placeholder", lang, default="Dashboard page (placeholder)")
     )
+
     render_flash()
+    if DEBUG_HUD:
+        debug_hud("Dashboard/pre")
+
     lang = st.session_state.get("lang", "en")
     cats, cat_labels = categories_ui(lang)
+    fmt = make_category_formatter(cat_labels)
 
-    def fmt_cat(key: str) -> str:
-        return cat_labels.get(str(key), str(key))
+    # Загружаем базовый датафрейм
+    base_df = load_df(
+        st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"),
+        _ver=get_data_version(),
+    )
 
-    # ----- Фильтры по дате -----
+    # ===== Фильтры по дате =====
     today = date.today()
     month_start = today.replace(day=1)
 
@@ -525,6 +634,14 @@ if choice == "dashboard":
         st.session_state["dash_start"] = month_start.isoformat()
     if "dash_end" not in st.session_state:
         st.session_state["dash_end"] = today.isoformat()
+
+    # >>> ЕДИНЫЙ фильтр данных для Dashboard (совместим с Browse) <<<
+    df_filtered = get_filtered_df_for_period(
+        base_df,
+        start=pd.to_datetime(st.session_state["dash_start"]).date(),
+        end=pd.to_datetime(st.session_state["dash_end"]).date(),
+        # на Dashboard без category/search/min/max — показываем всё за период
+    )
 
     # 2) Виджеты используют другие ключи, чтобы не конфликтовать с session_state
     c1, c2, c3 = st.columns((1, 1, 0.5))
@@ -564,7 +681,10 @@ if choice == "dashboard":
     lang = st.session_state.get("lang", "en")
     db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
 
+    st.cache_data.clear()  # только для диагностики, потом уберём
     raw_df = load_df(db_path, start_s, end_s, _ver=get_data_version())
+    if DEBUG_HUD:
+        debug_hud("Dashboard/post", raw_df)
 
     if raw_df.empty:
         st.info(
@@ -578,45 +698,53 @@ if choice == "dashboard":
 
     # Очистка и сортировка через хелпер
     df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
+    if DEBUG_HUD:
+        debug_hud("Dashboard/clean", df)
 
-    # ----- KPI -----
-    total = float(df["amount"].sum())
-    count = len(df)
-    avg = float(df["amount"].mean())
-    cats = int(df["category"].nunique())
+    # ===== KPI =====
+    total = float(df["amount"].sum()) if not df.empty else 0.0
+    count = int(len(df))
+    avg = float(df["amount"].mean()) if count else 0.0
+    cats = int(df["category"].nunique()) if not df.empty else 0
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric(t("kpi.total", lang, default="Total"), f"{total:.2f}")
     k2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
     k3.metric(t("kpi.average", lang, default="Average"), f"{avg:.2f}")
     k4.metric(t("kpi.categories", lang, default="Categories"), f"{cats}")
-
     st.divider()
 
-    # ----- Топ последних операций -----
+    # ===== Last operations (TOP N) =====
+    N_LAST = 10
     st.subheader(t("dashboard.last_operations", lang, default="Last operations"))
-    show_cols = ["date", "category", "amount", "description"]
 
-    # проверяем, есть ли колонка id для надёжной сортировки
-    sort_cols = ["date"] + (["id"] if "id" in df.columns else [])
+    last_ops = df.sort_values(["date"], ascending=False).head(N_LAST).copy()
+    last_ops["date"] = pd.to_datetime(last_ops["date"]).dt.strftime("%Y-%m-%d")
+    last_ops["category"] = last_ops["category"].map(fmt)
 
-    last5 = (
-        df.sort_values(sort_cols, ascending=[False] * len(sort_cols))
-        .loc[:, show_cols]
-        .head(5)
+    st.dataframe(
+        last_ops[["date", "category", "amount", "description"]],
+        use_container_width=True,
+        hide_index=True,
+        height=220,  # даёт скролл в блоке
+        column_config={"amount": st.column_config.NumberColumn(format="%.2f")},
     )
 
-    # локализуем подписи категорий
-    last5_local = _localize_category_column(last5, cat_labels)
+    # ===== All expenses in period (полный список) =====
+    st.subheader(
+        t("dashboard.recent_expenses_full", lang, default="All expenses in period")
+    )
 
-    show_cols = ["date", "category", "amount", "description"]
-    render_table(
-        last5_local,
-        cols=show_cols,
-        lang=lang,
+    all_exp = df.copy()
+    all_exp["date"] = pd.to_datetime(all_exp["date"]).dt.strftime("%Y-%m-%d")
+    all_exp["category"] = all_exp["category"].map(fmt)
+
+    st.dataframe(
+        all_exp[["id", "date", "category", "amount", "description"]],
+        use_container_width=True,
         hide_index=True,
-        width="stretch",
-        height=220,
+        height=420,  # прокручиваемый полный список
+        column_config={"amount": st.column_config.NumberColumn(format="%.2f")},
     )
 
     # ----- Диаграмма по категориям -----
@@ -629,9 +757,10 @@ if choice == "dashboard":
         .to_frame()
     )
     # локализуем подписи категорий в индексе
-    cat_totals.index = cat_totals.index.map(lambda k: cat_labels.get(str(k), str(k)))
+    cat_totals_local = cat_totals.copy()
+    cat_totals_local.index = cat_totals_local.index.map(fmt)
 
-    st.bar_chart(cat_totals, use_container_width=True)
+    st.bar_chart(cat_totals_local, use_container_width=True)
 
     # ----- Последние операции -----
     render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=True, lang=lang)
@@ -690,11 +819,11 @@ elif choice == "add_expense":
 
     # категории
     cats, cat_labels = categories_ui(lang)
-    fmt = cat_label_fn_factory(cat_labels)
+    fmt = make_fmt(cat_labels)
 
-    def cat_label_fn(c: Any) -> str:
-        # Всегда str: никаких Optional
-        return str(cat_labels.get(c, c))
+    # def cat_label_fn(c: Any) -> str:
+    #     Всегда str: никаких Optional
+    #     return str(cat_labels.get(c, c))
 
     # ----- форма -----
     with st.form(f"add_form_{user}", clear_on_submit=False):
@@ -708,7 +837,7 @@ elif choice == "add_expense":
                 t("add_expense.choose_existing", lang, default="Choose category"),
                 options=cats,
                 index=0 if cats else None,
-                format_func=cat_label_fn,
+                format_func=fmt,
                 key=keys["choose"],
             )
             if not cats or cat_val == "":
@@ -805,169 +934,183 @@ elif choice == "add_expense":
     # ---- таблица последних записей (как было у вас) ----
     render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=False, lang=lang)
 
-# ================ Browse & Filter ================
+# ===== Browse & Filter (новый каркас) =====
 elif choice == "browse":
-    # Заголовок и подпись страницы
     st.subheader(t("menu.browse", lang, default="Browse & Filter"))
     st.caption(
         "🔎 "
         + t("browse.placeholder", lang, default="Page Browse & Filter (placeholder)")
     )
     render_flash()
+    if DEBUG_HUD:
+        debug_hud("Browse/pre")
 
-    # ---------- Подготовка исходных значений (safe defaults) ----------
+    # ---------- База и диапазоны ----------
     db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
     base_df = load_df(db_path, _ver=get_data_version())  # без ограничений дат
+    if DEBUG_HUD:
+        debug_hud("Browse/post", base_df)
 
     if base_df is not None and not base_df.empty:
         base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
         min_date = base_df["date"].min().date()
         max_date = base_df["date"].max().date()
-        cats_all = sorted(c for c in base_df["category"].dropna().unique().tolist())
-        min_amount = float(base_df["amount"].min())
-        max_amount = float(base_df["amount"].max())
+        cats_all_from_db = sorted(
+            c for c in base_df["category"].dropna().unique().tolist()
+        )
+        min_amount_def = float(base_df["amount"].min())
+        max_amount_def = float(base_df["amount"].max())
     else:
-        # если данных нет — безопасные дефолты
         today = date.today()
-        min_date = today.replace(day=1)
-        max_date = today
-        cats_all = []
-        min_amount = 0.0
-        max_amount = 0.0
+        min_date, max_date = today.replace(day=1), today
+        cats_all_from_db, min_amount_def, max_amount_def = [], 0.0, 0.0
 
-    # --- Категории для UI (всегда: базовые + найденные в БД), с локализацией
-    cats, cat_labels = categories_ui(lang)  # ['entertainment', ...] + из БД
-    fmt = cat_label_fn_factory(
-        cat_labels
-    )  # (Any) -> str, безопасная функция форматирования
-    cats_all = list(cats)  # полный список ключей
+    cats, cat_labels = categories_ui(lang)
+    fmt = make_category_formatter(cat_labels)
+    if DEBUG_HUD:
+        debug_hud("labels", extra={"labels_lang": lang, "labels_cnt": len(cat_labels)})
 
-    # Значения по умолчанию из session_state (если были выбраны ранее)
-    _prev = st.session_state.get("filter_categories", cats_all)
+    cats_all = list(dict.fromkeys([*cats, *cats_all_from_db]))
 
-    # Оставляем только существующие ключи и сохраняем порядок как в cats
-    cats_selected = [c for c in _prev if c in set(cats_all)]
-    if not cats_selected:
-        cats_selected = cats_all
+    ss = st.session_state
 
-    # Поисковая строка как и раньше
-    search_value = st.session_state.get("filter_search", "")
+    # ---------- Инициализация (хранимые значения) ----------
+    if "bf_init" not in ss:
+        ss["bf_start"] = min_date.isoformat()
+        ss["bf_end"] = max_date.isoformat()
+        ss["bf_categories"] = cats_all.copy()
+        ss["bf_search"] = ""
+        ss["bf_min"] = min_amount_def
+        ss["bf_max"] = max_amount_def
+        ss["bf_init"] = True
 
-    # ---------- Фильтры ----------
+    # ---------- Обработка Reset / Apply ДО рендера ----------
+    if ss.pop("_bf_do_reset", False):
+        ss["bf_start"] = min_date.isoformat()
+        ss["bf_end"] = max_date.isoformat()
+        ss["bf_categories"] = cats_all.copy()
+        ss["bf_search"] = ""
+        ss["bf_min"] = min_amount_def
+        ss["bf_max"] = max_amount_def
+        st.rerun()
+
+    if ss.pop("_bf_do_apply", False):
+        # переносим значения из *_input в хранилище и перерисовываем
+        ss["bf_start"] = ss["bf_start_input"].isoformat()
+        ss["bf_end"] = ss["bf_end_input"].isoformat()
+        ss["bf_categories"] = ss["bf_categories_input"]
+        ss["bf_search"] = ss["bf_search_input"]
+        ss["bf_min"] = ss["bf_min_input"]
+        ss["bf_max"] = ss["bf_max_input"]
+        ss["_flash"] = (
+            t("dashboard.filters_applied", lang, default="Filters applied"),
+            "⚙️",
+        )
+        st.rerun()
+
+    # ---------- Виджеты (используем отдельные ключи *_input) ----------
     with st.form("filter_form", clear_on_submit=False):
         c1, c2 = st.columns(2)
         with c1:
-            start = st.date_input(
+            st.date_input(
                 t("common.start", lang, default="Start"),
-                value=min_date,
+                value=pd.to_datetime(ss["bf_start"]).date(),
                 min_value=min_date,
                 max_value=max_date,
-                key="filter_start_date",
+                key="bf_start_input",
             )
         with c2:
-            end = st.date_input(
+            st.date_input(
                 t("common.end", lang, default="End"),
-                value=max_date,
+                value=pd.to_datetime(ss["bf_end"]).date(),
                 min_value=min_date,
                 max_value=max_date,
-                key="filter_end_date",
+                key="bf_end_input",
             )
 
         c3, c4 = st.columns([2, 1])
         with c3:
-            sel_cats = st.multiselect(
+            st.multiselect(
                 t("col.category", lang, default="Category"),
                 options=cats_all,
-                default=cats_selected,
-                placeholder=t(
-                    "browse.select_categories", lang, default="Select categories..."
-                ),
+                default=ss["bf_categories"],
                 format_func=fmt,
-                key="filter_categories",
+                key="bf_categories_input",
             )
         with c4:
-            search = st.text_input(
+            st.text_input(
                 t(
                     "browse.search_contains",
                     lang,
                     default="Search (description contains)",
                 ),
-                value=search_value,
-                key="filter_search",
+                value=ss["bf_search"],
+                key="bf_search_input",
             )
 
         a1, a2 = st.columns(2)
         with a1:
-            amt_min = st.number_input(
+            st.number_input(
                 t("browse.min_amount", lang, default="Min amount"),
-                value=min_amount,
+                value=float(ss["bf_min"]),
                 step=1.0,
-                key="filter_min_amount",
+                key="bf_min_input",
             )
         with a2:
-            amt_max = st.number_input(
+            st.number_input(
                 t("browse.max_amount", lang, default="Max amount"),
-                value=max_amount,
+                value=float(ss["bf_max"]),
                 step=1.0,
-                key="filter_max_amount",
+                key="bf_max_input",
             )
 
-        fcol1, fcol2 = st.columns(2)
-        run = fcol1.form_submit_button(t("common.apply", lang, default="Apply"))
-        reset = fcol2.form_submit_button(t("browse.reset", lang, default="Reset"))
+        col_btn1, col_btn2 = st.columns(2)
+        run = col_btn1.form_submit_button(t("common.apply", lang, default="Apply"))
+        reset = col_btn2.form_submit_button(t("browse.reset", lang, default="Reset"))
 
-    # ---------- Применение фильтров ----------
     if reset:
-        st.session_state["filter_categories"] = cats_all
-        st.session_state["filter_search"] = ""
-        cats_selected = cats_all
-        search_value = ""
-        amt_min = min_amount
-        amt_max = max_amount
-        start = min_date
-        end = max_date
+        ss["_bf_do_reset"] = True
+        st.rerun()
 
+    if run:
+        ss["_bf_do_apply"] = True
+        st.rerun()
+
+    # ---------- Фильтрация данных ----------
     f = base_df.copy()
-
     if not f.empty:
-        # даты
+        start = pd.to_datetime(ss["bf_start"]).date()
+        end = pd.to_datetime(ss["bf_end"]).date()
+        sel_cats = ss["bf_categories"]
+        sv = (ss["bf_search"] or "").strip().lower()
+        a_min, a_max = float(ss["bf_min"]), float(ss["bf_max"])
+
         f = f[(f["date"].dt.date >= start) & (f["date"].dt.date <= end)]
-        # категории
-        if cats_selected:
-            f = f[f["category"].isin(cats_selected)]
-        # поиск по описанию
-        sv = (search_value or "").strip().lower()
+        if sel_cats:
+            f = f[f["category"].isin(sel_cats)]
         if sv:
             f = f[f["description"].astype(str).str.lower().str.contains(sv, na=False)]
-        # суммы
-        f = f[(f["amount"] >= float(amt_min)) & (f["amount"] <= float(amt_max))]
+        f = f[(f["amount"] >= a_min) & (f["amount"] <= a_max)]
 
     # ---------- KPI ----------
+    total = float(f["amount"].sum()) if not f.empty else 0.0
+    count = int(len(f))
+    avg = float(f["amount"].mean()) if count else 0.0
+
     k1, k2, k3 = st.columns(3)
-    with k1:
-        st.metric(t("kpi.total", lang, default="Total"), f"{f['amount'].sum():.2f}")
-    with k2:
-        st.metric(t("kpi.operations", lang, default="Operations"), f"{len(f)}")
-    with k3:
-        st.metric(
-            t("kpi.average", lang, default="Average"), f"{f['amount'].mean():.2f}"
-        )
+    k1.metric(t("kpi.total", lang, default="Total"), f"{total:.2f}")
+    k2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
+    k3.metric(t("kpi.average", lang, default="Average"), f"{avg:.2f}")
 
     st.divider()
 
-    # ---------- Опции отображения ----------
+    # ---------- Параметры отображения ----------
     st.subheader(t("browse.view_options", lang, default="View options"))
-
     col_opts, _ = st.columns([1, 3])
     with col_opts:
         rm_dups = st.checkbox(
             t("browse.remove_dups", lang, default="Remove exact duplicates"),
             value=True,
-            help=t(
-                "browse.remove_dups_help",
-                lang,
-                default="Remove rows that are exact duplicates (date, category, amount, description).",
-            ),
             key="opt_remove_dups",
         )
         newest_first = st.checkbox(
@@ -976,44 +1119,37 @@ elif choice == "browse":
             key="opt_newest_first",
         )
 
-    # подготовка данных к показу (ВАША логика)
     f_disp = prepare_df_for_view(f, remove_dups=rm_dups, newest_first=newest_first)
+
+    # ---------- Таблица (локализация категорий тем же fmt) ----------
     f_show = f_disp.copy()
     f_show["date"] = pd.to_datetime(f_show["date"], errors="coerce").dt.strftime(
         "%Y-%m-%d"
     )
-    f_show["category"] = f_show["category"].map(
-        lambda c: cat_labels.get(str(c), str(c))
-    )
+    f_show["category"] = f_show["category"].map(fmt)
 
-    # ✳️ ПЕРЕИМЕНОВЫВАЕМ ЗАГОЛОВКИ КОЛОНОК
-    col_names = _col_labels(
-        lang
-    )  # {'id': '...', 'date': '...', 'category': '...', ...}
+    col_names = _col_labels(lang)
     f_show = f_show.rename(columns=col_names)
 
-    # таблица
+    # Заголовок таблицы результатов
+    st.subheader(t("browse.results", lang, default="Filtered results"))
+
     st.dataframe(
         f_show,
         width="stretch",
         hide_index=True,
         column_config={
             col_names["amount"]: st.column_config.NumberColumn(
-                t("col.amount", lang, default="Amount"),
-                format="%.2f",
+                t("col.amount", lang, default="Amount"), format="%.2f"
             ),
             col_names["date"]: st.column_config.DatetimeColumn(
-                t("col.date", lang, default="Date"),
-                format="YYYY-MM-DD",
+                t("col.date", lang, default="Date"), format="YYYY-MM-DD"
             ),
         },
     )
 
     st.divider()
-
-    # ---------- Экспорт ----------
     st.subheader(t("browse.export_data", lang, default="Export Data"))
-
     csv_bytes = f_disp.to_csv(index=False).encode("utf-8")
     st.download_button(
         label="📥 " + t("common.download_csv", lang, default="Download CSV"),
@@ -1022,7 +1158,6 @@ elif choice == "browse":
         mime="text/csv",
         key="btn_download_csv",
     )
-
     export_df_to_excel_button(f_disp, filename="expenses_filtered.xlsx")
 
 
@@ -1034,13 +1169,20 @@ elif choice == "charts":
         "📈 " + t("charts.placeholder", lang, default="Charts page (placeholder)")
     )
     render_flash()
+    debug_hud("Charts/pre")
 
     lang = st.session_state.get("lang", "en")
     cats, cat_labels = categories_ui(lang)
+    debug_hud("labels", extra={"labels_lang": lang, "labels_cnt": len(cat_labels)})
+
+    def _fmt_cat(key: object) -> str:
+        s = "" if key is None else str(key)
+        return cat_labels.get(s, s)
 
     # 0) исходные данные
     db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
     df = load_df(db_path, _ver=get_data_version()).copy()
+    debug_hud("Charts/post", df)
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
@@ -1048,10 +1190,6 @@ elif choice == "charts":
     # если у вас есть фильтры по датам/категориям выше — применяйте их здесь,
     # чтобы ch_df уже соответствовал выбранному диапазону/категориям
     ch_df = df.copy()
-
-    # 1) локализация категорий (fmt: key -> label)
-    def _fmt_cat(k: str) -> str:
-        return cat_labels.get(k, k)
 
     # 2) агрегаты — БЕЗ масштабирования /100
     # --- By category --------------------------------------------------------------
@@ -1160,22 +1298,32 @@ elif choice == "charts":
             if not ch_df.empty
             else pd.DataFrame({"category": [], "amount": []})
         )
+
+        # добавляем локализованное поле
+        if not pie_df.empty:
+            pie_df["cat_label"] = pie_df["category"].map(_fmt_cat)
+
         if not pie_df.empty:
             chart = (
                 alt.Chart(pie_df)
                 .mark_arc()
                 .encode(
                     theta=alt.Theta("amount:Q"),
-                    color=alt.Color("category:N"),
+                    color=alt.Color(
+                        "cat_label:N",
+                        legend=alt.Legend(
+                            title=t("col.category", lang, default="Category")
+                        ),
+                    ),
                     tooltip=[
                         alt.Tooltip(
-                            "category:N",
+                            "cat_label:N",
                             title=t("col.category", lang, default="Category"),
                         ),
                         alt.Tooltip(
                             "amount:Q",
                             title=t("kpi.total", lang, default="Total"),
-                            format=".2f",
+                            format=",.2f",
                         ),
                     ],
                 )
