@@ -10,7 +10,7 @@
 """
 
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from typing import Dict, List, Tuple
 
 # импортируем из messages.py

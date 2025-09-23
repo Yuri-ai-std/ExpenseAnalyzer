@@ -4,25 +4,15 @@ import sqlite3
 from datetime import date
 from datetime import date as _date
 from datetime import datetime
-from functools import partial
 from io import BytesIO
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Callable, Dict, Tuple, cast
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-from db import (
-    _limits_path_for_db,
-    add_expense,
-    ensure_db,
-    ensure_limits_file,
-    get_db_path,
-    get_expenses_df,
-    list_categories,
-)
+from db import add_expense, ensure_db, get_db_path, get_expenses_df, list_categories
 from flash import flash, render_flash
 
 # CSV/аудит для лимитов
