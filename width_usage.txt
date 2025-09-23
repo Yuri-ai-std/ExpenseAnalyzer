@@ -19,7 +19,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/proto/GraphVizChart_pb2.py:26:  _globals['_GRAPHVIZCHART'].fields_by_name['use_container_width']._serialized_options = b'\030\001'
 ./.venv/lib/python3.12/site-packages/streamlit/proto/DownloadButton_pb2.py:17:DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n$streamlit/proto/DownloadButton.proto\"\xc9\x01\n\x0e\x44ownloadButton\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05label\x18\x02 \x01(\t\x12\x0f\n\x07\x64\x65\x66\x61ult\x18\x03 \x01(\x08\x12\x0c\n\x04help\x18\x04 \x01(\t\x12\x0f\n\x07\x66orm_id\x18\x05 \x01(\t\x12\x0b\n\x03url\x18\x06 \x01(\t\x12\x10\n\x08\x64isabled\x18\x07 \x01(\x08\x12\x1b\n\x13use_container_width\x18\x08 \x01(\x08\x12\x0c\n\x04type\x18\t \x01(\t\x12\x0c\n\x04icon\x18\n \x01(\t\x12\x14\n\x0cignore_rerun\x18\x0b \x01(\x08\x42\x33\n\x1c\x63om.snowflake.apps.streamlitB\x13\x44ownloadButtonProtob\x06proto3')
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:271:    use_container_width: bool,
-./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:289:        # on vconcat with use_container_width=True as there are unintended
+./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:289:        # on vconcat with width="stretch" as there are unintended
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:296:        if "vconcat" in spec and use_container_width:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:603:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:697:        use_container_width : bool
@@ -28,7 +28,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:705:                The ``use_container_width`` parameter is deprecated and will
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:784:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:787:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:790:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:790:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:791:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:796:            if use_container_width:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:799:                # This preserves the existing behavior of setting use_container_width
@@ -69,8 +69,8 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2024:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2077:        # Set the default value for `use_container_width`.
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2078:        if use_container_width is None and width is None:
-./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2081:            # don't work well with `use_container_width=True`, so we disable it for
-./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2084:            # `use_container_width=True` unless width is provided.
+./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2081:            # don't work well with `width="stretch"`, so we disable it for
+./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2084:            # `width="stretch"` unless width is provided.
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2089:            use_container_width = not (
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2095:        use_container_width_for_spec = (
 ./.venv/lib/python3.12/site-packages/streamlit/elements/vega_charts.py:2096:            use_container_width
@@ -84,11 +84,11 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:75:            the parent container. If ``use_container_width`` is ``False``
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:78:            container. If ``use_container_width`` is ``True``, Streamlit sets
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:95:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:96:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:96:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:97:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:149:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:152:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:155:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:155:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:156:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/graphviz_chart.py:161:            width = "stretch" if use_container_width else "content"
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:284:        use_container_width: bool | None = None,
@@ -96,10 +96,10 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:318:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:395:        use_container_width : bool
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:494:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:495:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:495:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:644:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:647:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:650:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:650:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:651:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:656:            if use_container_width:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/arrow.py:736:                use_container_width=use_container_width,
@@ -118,7 +118,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:346:            If ``use_container_width`` is ``False`` (default), Streamlit sizes
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:347:            the button to fit its contents. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:367:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:368:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:368:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:369:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:379:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/form.py:380:            width = "stretch" if use_container_width else "content"
@@ -147,20 +147,20 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:95:            the parent container. If ``use_container_width`` is ``True``
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:97:            width of the parent container. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:106:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:107:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:107:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:108:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:136:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:139:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:142:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:142:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:143:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/pyplot.py:149:            width = "stretch" if use_container_width else "content"
-./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:457:        >>> middle.button("Click me", use_container_width=True)
+./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:457:        >>> middle.button("Click me", width="stretch")
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:838:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:906:        use_container_width : bool
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:908:            If ``use_container_width`` is ``False`` (default), Streamlit sizes
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:909:            the button to fit its content. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:937:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:938:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:938:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:939:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:979:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/layouts.py:980:            width = "stretch" if use_container_width else "content"
@@ -176,7 +176,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:140:            container. If ``use_container_width`` is ``False`` (default),
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:142:            ``use_container_width`` is ``True``, Streamlit sets the width of
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:146:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:147:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:147:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:148:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:167:            if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:169:                    "`use_container_width` and `use_column_width` cannot be set at the same time.",
@@ -184,7 +184,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:175:                "in a future release. Please utilize the `use_container_width` parameter instead."
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:182:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:185:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:188:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:188:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:189:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:194:            if use_container_width is True:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/image.py:197:                # Preserve the existing behavior with respect to use_container_width=False
@@ -193,10 +193,10 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:648:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:707:        use_container_width : bool
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:797:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:798:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:798:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:919:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:922:                    "use_container_width",
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:925:                    "For `use_container_width=True`, use `width='stretch'`. "
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:925:                    "For `width="stretch"`, use `width='stretch'`. "
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:926:                    "For `use_container_width=False`, use `width='content'`.",
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:931:            if use_container_width:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/data_editor.py:1036:            use_container_width=use_container_width,
@@ -205,7 +205,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:184:            If ``use_container_width`` is ``False`` (default), Streamlit sizes
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:185:            the button to fit its contents. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:205:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:206:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:206:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:207:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:258:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:259:            width = "stretch" if use_container_width else "content"
@@ -214,7 +214,7 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:428:            If ``use_container_width`` is ``False`` (default), Streamlit sizes
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:429:            the button to fit its contents. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:449:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:450:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:450:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:451:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:567:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:568:            width = "stretch" if use_container_width else "content"
@@ -223,26 +223,26 @@
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:676:            If ``use_container_width`` is ``False`` (default), Streamlit sizes
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:677:            the button to fit its contents. If ``use_container_width`` is
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:697:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:698:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:698:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:699:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:720:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:721:            width = "stretch" if use_container_width else "content"
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:742:        use_container_width: bool | None = None,
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:810:        use_container_width : bool
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:829:            ``use_container_width`` is deprecated and will be removed in a
-./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:830:            future release. For ``use_container_width=True``, use
+./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:830:            future release. For ``width="stretch"``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:831:            ``width="stretch"``. For ``use_container_width=False``, use
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:864:        if use_container_width is not None:
 ./.venv/lib/python3.12/site-packages/streamlit/elements/widgets/button.py:865:            width = "stretch" if use_container_width else "content"
-./.venv/lib/python3.12/site-packages/streamlit/hello/dataframe_demo.py:57:            st.altair_chart(chart, use_container_width=True)
-./.venv/lib/python3.12/site-packages/streamlit/hello/animation_demo.py:60:        image.image(1.0 - (n_matrix / n_matrix.max()), use_container_width=True)
-./app.py:362:        use_container_width=True,
-./app.py:376:    st.bar_chart(cat_totals, use_container_width=True)
-./app.py:652:        use_container_width=True,
-./app.py:685:    apply_c = colp3.button(msgs.get("apply", "Apply"), use_container_width=True)
-./app.py:736:    st.altair_chart(cat_chart, use_container_width=True)
-./app.py:761:    st.altair_chart(line_chart, use_container_width=True)
-./app.py:792:        st.altair_chart(pie, use_container_width=True)
-./app.py:800:            use_container_width=True,
-./app.py:864:    if st.button("Create", use_container_width=True):
-./app.py:946:        create = st.button("Create", type="primary", use_container_width=True)
+./.venv/lib/python3.12/site-packages/streamlit/hello/dataframe_demo.py:57:            st.altair_chart(chart, width="stretch")
+./.venv/lib/python3.12/site-packages/streamlit/hello/animation_demo.py:60:        image.image(1.0 - (n_matrix / n_matrix.max()), width="stretch")
+./app.py:362:        width="stretch",
+./app.py:376:    st.bar_chart(cat_totals, width="stretch")
+./app.py:652:        width="stretch",
+./app.py:685:    apply_c = colp3.button(msgs.get("apply", "Apply"), width="stretch")
+./app.py:736:    st.altair_chart(cat_chart, width="stretch")
+./app.py:761:    st.altair_chart(line_chart, width="stretch")
+./app.py:792:        st.altair_chart(pie, width="stretch")
+./app.py:800:            width="stretch",
+./app.py:864:    if st.button("Create", width="stretch"):
+./app.py:946:        create = st.button("Create", type="primary", width="stretch")

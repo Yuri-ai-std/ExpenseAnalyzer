@@ -168,7 +168,7 @@ def show_charts(
         db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
 
     df = get_expenses_df(
-        db_path=db_path,
+        db_path=str(db_path),
         start_date=start,
         end_date=end,
         category=category,

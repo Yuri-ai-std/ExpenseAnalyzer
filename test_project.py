@@ -69,7 +69,7 @@ def sample_data(tmp_db: str):
 
 def test_get_expenses_df_reads_from_given_db_path(sample_data: str):
     """get_expenses_df должен брать данные именно из переданного db_path."""
-    df = get_expenses_df(db_path=sample_data)
+    df = get_expenses_df(db_path=str(sample_data))
     assert isinstance(df, pd.DataFrame)
     # Вставлено 8 строк
     assert len(df) >= 8

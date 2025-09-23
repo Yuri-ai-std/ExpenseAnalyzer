@@ -372,7 +372,7 @@ def _get_current_expenses(
     берём df через get_expenses_df и переводим в список словарей.
     """
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path)
+    df = get_expenses_df(db_path=str(db_path))
     if df is None or df.empty:
         return []
     # гарантируем одинаковые ключи
@@ -530,7 +530,7 @@ def suggest_limits_for_month(user: str, month_key: str) -> Dict[str, float]:
         cur = prev_month_key(cur)
     # загружаем расходы за эти месяцы
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path)
+    df = get_expenses_df(db_path=str(db_path))
     if df is None or df.empty:
         return {}
     df["ym"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m")

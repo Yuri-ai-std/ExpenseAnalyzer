@@ -81,9 +81,21 @@ def current_user() -> str:
     return st.session_state["current_user"]
 
 
-ACTIVE_DB_PATH = db_path_for(current_user())  # data/default_expenses.db
+def assert_db_path(p: str | Path) -> Path:
+    """Гарантия, что путь ведёт на .db и БД готова."""
+    path = Path(p)
+    if path.suffix != ".db":
+        raise ValueError(f"ACTIVE_DB_PATH must be a .db file, got: {path}")
+    ensure_db(path)
+    return path
+
+
+# Основные пути (только .db и .json)
+ACTIVE_DB_PATH = assert_db_path(db_path_for(current_user()))  # data/default_expenses.db
+ACTIVE_DB_PATH_STR = str(ACTIVE_DB_PATH)
 ACTIVE_LIMITS_PATH = limits_path_for(current_user())  # data/default/budget_limits.json
 DATA_DIR = Path("data")
+
 BASE_CATEGORIES = [
     "entertainment",
     "food",
@@ -92,10 +104,11 @@ BASE_CATEGORIES = [
     "transport",
     "utilities",
 ]
-DEBUG_HUD = False  # True — чтобы видеть отладочные строки на странице
 
-# делаем пути видимыми для других модулей через session_state
-st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH
+DEBUG_HUD = False
+
+# Делаем пути видимыми для других модулей через session_state
+st.session_state["ACTIVE_DB_PATH"] = ACTIVE_DB_PATH_STR
 st.session_state["ACTIVE_LIMITS_PATH"] = str(ACTIVE_LIMITS_PATH)
 
 LabelFn = Callable[[Any], str]
@@ -270,14 +283,52 @@ def _col_labels(lang: str) -> dict[str, str]:
     }
 
 
+# ===== Унифицированный вывод таблиц =====
 def render_table(
-    df, cols, lang: str, *, labels: dict[str, str] | None = None, **st_kwargs
+    df,
+    cols=None,
+    lang="en",
+    hide_index=True,
+    *,
+    width="stretch",  # 'stretch' | 'content' | int(px)
+    height=None,  # int(px) | 'stretch' | 'auto' | None
+    labels: dict[str, str] | None = None,
 ):
-    df_disp = df.loc[:, cols]
+    """
+    Универсальный рендер таблиц для Streamlit:
+    - width: 'stretch' растягивает таблицу на ширину контейнера,
+             'content' = по содержимому, либо конкретная ширина в пикселях (int).
+    - height: целое число пикселей, либо 'stretch'/'auto'. Если None — параметр не передаем.
+    """
+
+    # 1) Подготовка датафрейма и локализация (если передали labels)
+    df_disp = df if cols is None else df.loc[:, cols]
     if labels is not None:
         df_disp = _localize_category_column(df_disp, labels)
-    df_disp = df_disp.rename(columns=_col_labels(lang))
-    st.dataframe(df_disp, **st_kwargs)
+
+    # 2) Нормализация аргументов под разные версии Streamlit
+    st_kwargs: dict = {}
+
+    # ширина: новые версии — width='stretch'/'content'/int,
+    # старые — use_container_width=True/False
+    if isinstance(width, int):
+        st_kwargs["width"] = width
+    elif width in ("stretch", "content"):
+        # Поддержим обе ветки: где-то уже есть width, где-то ещё use_container_width.
+        # Передадим то и другое безопасно — Streamlit возьмёт подходящее.
+        st_kwargs["width"] = width  # для новых версий
+        st_kwargs["use_container_width"] = width == "stretch"  # для старых
+    # если None — просто не передаем ничего
+
+    # высота: передаем ТОЛЬКО если не None
+    if isinstance(height, int) or (
+        isinstance(height, str) and height in ("stretch", "auto")
+    ):
+        st_kwargs["height"] = height
+    # если None — не добавляем 'height' вовсе (иначе RuntimeError)
+
+    # 3) Сам вывод
+    st.dataframe(df_disp, hide_index=hide_index, **st_kwargs)
 
 
 def render_recent_expenses_table(
@@ -286,7 +337,7 @@ def render_recent_expenses_table(
     if show_title:
         st.subheader(t("recent_expenses", lang, default="Recent expenses"))
 
-    raw_df = get_expenses_df(db_path=db_path)
+    raw_df = get_expenses_df(db_path=str(db_path))
     df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
     df_recent = df.head(n)
 
@@ -335,7 +386,7 @@ def load_df(
     db_path входит в ключ кэша — смена профиля всегда даёт свежие данные.
     Параметр _ver используется только для инвалидации кэша.
     """
-    df = get_expenses_df(db_path, start_date=start, end_date=end)
+    df = get_expenses_df(str(db_path), start_date=start, end_date=end)
 
     expected = ["date", "category", "amount", "description"]
     for col in expected:
@@ -420,33 +471,6 @@ def make_fmt(labels: dict[str, str]) -> LabelFn:
     return _fmt
 
 
-def get_filtered_df_for_period(
-    base_df: pd.DataFrame,
-    start: date,
-    end: date,
-    categories: list[str] | None = None,
-    search: str | None = None,
-    min_amount: float | None = None,
-    max_amount: float | None = None,
-) -> pd.DataFrame:
-    df = base_df.copy()
-    if df.empty:
-        return df
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df[(df["date"].dt.date >= start) & (df["date"].dt.date <= end)]
-    if categories:
-        df = df[df["category"].isin(categories)]
-    if search:
-        s = search.strip().lower()
-        if s:
-            df = df[df["description"].astype(str).str.lower().str.contains(s, na=False)]
-    if min_amount is not None:
-        df = df[df["amount"] >= float(min_amount)]
-    if max_amount is not None:
-        df = df[df["amount"] <= float(max_amount)]
-    return df
-
-
 def get_expenses_view(
     *, db_path: str, start: str, end: str, lang: str, newest_first: bool = True
 ) -> Tuple[pd.DataFrame, LabelFn, dict[str, str]]:
@@ -462,7 +486,7 @@ def get_expenses_view(
       labels — словарь {key -> label}
     """
     ver = get_data_version()
-    raw = load_df(db_path, start, end, _ver=ver)
+    raw = load_df(str(db_path), start, end, _ver=ver)
     df = prepare_df_for_view(raw, remove_dups=True, newest_first=newest_first)
 
     _, labels = categories_ui(lang)  # labels: {тех. ключ -> локализованный label}
@@ -473,6 +497,43 @@ def get_expenses_view(
         df["category"] = df["category"].map(fmt)
 
     return df, fmt, labels
+
+
+# ---- ЕДИНЫЙ ФИЛЬТР ПО ПЕРИОДУ + ПОЛЯМ BROWSE ----
+def get_filtered_df_for_period(
+    base_df: pd.DataFrame,
+    *,
+    start: date,
+    end: date,
+    categories: list[str] | None = None,
+    search: str = "",
+    min_amount: float | None = None,
+    max_amount: float | None = None,
+) -> pd.DataFrame:
+    df = base_df.copy()
+    if df.empty:
+        return df
+
+    # дата
+    df = df[(df["date"] >= pd.to_datetime(start)) & (df["date"] <= pd.to_datetime(end))]
+
+    # категории (если заданы)
+    if categories:
+        df = df[df["category"].astype(str).isin(categories)]
+
+    # поиск по описанию
+    if search:
+        s = search.strip().lower()
+        if s:
+            df = df[df["description"].astype(str).str.lower().str.contains(s, na=False)]
+
+    # мин/макс суммы
+    if min_amount is not None:
+        df = df[df["amount"] >= float(min_amount)]
+    if max_amount is not None:
+        df = df[df["amount"] <= float(max_amount)]
+
+    return df
 
 
 # ---- язык интерфейса ----
@@ -503,7 +564,7 @@ def _fetch_categories() -> list[str]:
     # 2) иначе соберём уникальные категории из БД
     try:
         db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-        df = get_expenses_df(db_path=db_path)
+        df = get_expenses_df(db_path=str(db_path))
         if "category" in df.columns and not df.empty:
             return sorted(map(str, df["category"].dropna().unique().tolist()))
     except Exception:
@@ -610,40 +671,48 @@ if choice == "dashboard":
     st.write(
         "📊 " + t("dashboard.placeholder", lang, default="Dashboard page (placeholder)")
     )
-
     render_flash()
-    if DEBUG_HUD:
-        debug_hud("Dashboard/pre")
 
+    # i18n для категорий
     lang = st.session_state.get("lang", "en")
     cats, cat_labels = categories_ui(lang)
     fmt = make_category_formatter(cat_labels)
 
-    # Загружаем базовый датафрейм
-    base_df = load_df(
-        st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"),
-        _ver=get_data_version(),
-    )
+    # --- базовые данные из активной БД ---
+    base_df = load_df(ACTIVE_DB_PATH_STR, _ver=get_data_version())
 
     # ===== Фильтры по дате =====
     today = date.today()
     month_start = today.replace(day=1)
 
-    # 1) Хранимые значения фильтров в session_state (строки 'YYYY-MM-DD')
     if "dash_start" not in st.session_state:
         st.session_state["dash_start"] = month_start.isoformat()
     if "dash_end" not in st.session_state:
         st.session_state["dash_end"] = today.isoformat()
 
-    # >>> ЕДИНЫЙ фильтр данных для Dashboard (совместим с Browse) <<<
-    df_filtered = get_filtered_df_for_period(
-        base_df,
-        start=pd.to_datetime(st.session_state["dash_start"]).date(),
-        end=pd.to_datetime(st.session_state["dash_end"]).date(),
-        # на Dashboard без category/search/min/max — показываем всё за период
+    # --- clamp диапазона дат ДО виджетов ---
+    def clamp_date(value: date, lo: date, hi: date) -> date:
+        return min(max(value, lo), hi)
+
+    data_min = (
+        pd.to_datetime(base_df["date"]).min().date() if not base_df.empty else today
+    )
+    data_max = (
+        pd.to_datetime(base_df["date"]).max().date() if not base_df.empty else today
     )
 
-    # 2) Виджеты используют другие ключи, чтобы не конфликтовать с session_state
+    s = clamp_date(
+        pd.to_datetime(st.session_state["dash_start"]).date(), data_min, data_max
+    )
+    e = clamp_date(
+        pd.to_datetime(st.session_state["dash_end"]).date(), data_min, data_max
+    )
+
+    st.session_state["dash_start"], st.session_state["dash_end"] = (
+        s.isoformat(),
+        e.isoformat(),
+    )
+    # --- конец clamp ---
     c1, c2, c3 = st.columns((1, 1, 0.5))
     with c1:
         start_d = st.date_input(
@@ -651,19 +720,15 @@ if choice == "dashboard":
             value=pd.to_datetime(st.session_state["dash_start"]).date(),
             key="dash_start_input",
         )
-
     with c2:
         end_d = st.date_input(
             t("common.end", lang, default="End"),
             value=pd.to_datetime(st.session_state["dash_end"]).date(),
             key="dash_end_input",
         )
-
     with c3:
         refresh = st.button(t("common.apply", lang, default="Apply"), key="dash_apply")
 
-    # 3) При нажатии Apply переносим значения из виджетов в хранилище
-    # и мягко перерисовываем страницу
     if refresh:
         st.session_state["dash_start"] = start_d.isoformat()
         st.session_state["dash_end"] = end_d.isoformat()
@@ -673,97 +738,100 @@ if choice == "dashboard":
         )
         st.rerun()
 
-    # 4) Строки для загрузки данных
-    start_s = st.session_state["dash_start"]  # 'YYYY-MM-DD'
-    end_s = st.session_state["dash_end"]  # 'YYYY-MM-DD'
-
-    # ---- Данные ----
-    lang = st.session_state.get("lang", "en")
-    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
-
-    st.cache_data.clear()  # только для диагностики, потом уберём
-    raw_df = load_df(db_path, start_s, end_s, _ver=get_data_version())
-    if DEBUG_HUD:
-        debug_hud("Dashboard/post", raw_df)
-
-    if raw_df.empty:
-        st.info(
-            t(
-                "no_expenses_found",
-                lang,
-                default="No expenses found for selected period.",
-            )
-        )
-        st.stop()
-
-    # Очистка и сортировка через хелпер
-    df = prepare_df_for_view(raw_df, remove_dups=True, newest_first=True)
-    if DEBUG_HUD:
-        debug_hud("Dashboard/clean", df)
+    # ===== ЕДИНЫЙ фильтр данных (как на Browse) =====
+    df_filtered = get_filtered_df_for_period(
+        base_df,
+        start=pd.to_datetime(st.session_state["dash_start"]).date(),
+        end=pd.to_datetime(st.session_state["dash_end"]).date(),
+        # без category/search/min/max — «всё за период»
+    )
 
     # ===== KPI =====
-    total = float(df["amount"].sum()) if not df.empty else 0.0
-    count = int(len(df))
-    avg = float(df["amount"].mean()) if count else 0.0
-    cats = int(df["category"].nunique()) if not df.empty else 0
+    total = float(df_filtered["amount"].sum()) if not df_filtered.empty else 0.0
+    count = int(len(df_filtered))
+    avg = float(df_filtered["amount"].mean()) if count else 0.0
+    cats_n = int(df_filtered["category"].nunique()) if not df_filtered.empty else 0
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric(t("kpi.total", lang, default="Total"), f"{total:.2f}")
     k2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
     k3.metric(t("kpi.average", lang, default="Average"), f"{avg:.2f}")
-    k4.metric(t("kpi.categories", lang, default="Categories"), f"{cats}")
+    k4.metric(t("kpi.categories", lang, default="Categories"), f"{cats_n}")
+
+    # --- временный HUD для проверки ---
+    with st.expander("🔎 Debug HUD (temp)"):
+        dmin = (
+            str(pd.to_datetime(df_filtered["date"]).min())
+            if not df_filtered.empty
+            else "-"
+        )
+        dmax = (
+            str(pd.to_datetime(df_filtered["date"]).max())
+            if not df_filtered.empty
+            else "-"
+        )
+        st.write(
+            {
+                "db_path": str(st.session_state.get("ACTIVE_DB_PATH")),
+                "user": st.session_state.get("current_user"),
+                "range": {
+                    "start": st.session_state["dash_start"],
+                    "end": st.session_state["dash_end"],
+                    "df_min": dmin,
+                    "df_max": dmax,
+                },
+                "rows": len(df_filtered),
+                "total": total,
+                "ops": count,
+                "cats": cats_n,
+            }
+        )
+
     st.divider()
 
     # ===== Last operations (TOP N) =====
-    N_LAST = 10
     st.subheader(t("dashboard.last_operations", lang, default="Last operations"))
-
-    last_ops = df.sort_values(["date"], ascending=False).head(N_LAST).copy()
+    last_ops = df_filtered.sort_values(["date"], ascending=False).head(10).copy()
     last_ops["date"] = pd.to_datetime(last_ops["date"]).dt.strftime("%Y-%m-%d")
     last_ops["category"] = last_ops["category"].map(fmt)
 
     st.dataframe(
         last_ops[["date", "category", "amount", "description"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
-        height=220,  # даёт скролл в блоке
+        height=220,
         column_config={"amount": st.column_config.NumberColumn(format="%.2f")},
     )
 
-    # ===== All expenses in period (полный список) =====
+    # ===== Полный список за период =====
     st.subheader(
         t("dashboard.recent_expenses_full", lang, default="All expenses in period")
     )
-
-    all_exp = df.copy()
+    all_exp = df_filtered.copy()
     all_exp["date"] = pd.to_datetime(all_exp["date"]).dt.strftime("%Y-%m-%d")
     all_exp["category"] = all_exp["category"].map(fmt)
 
     st.dataframe(
         all_exp[["id", "date", "category", "amount", "description"]],
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
-        height=420,  # прокручиваемый полный список
+        height=420,
         column_config={"amount": st.column_config.NumberColumn(format="%.2f")},
     )
 
-    # ----- Диаграмма по категориям -----
+    # ===== Диаграмма по категориям (опционально) =====
     st.subheader(t("dashboard.by_category", lang, default="By category"))
     cat_totals = (
-        df.groupby("category", dropna=False)["amount"]
+        df_filtered.groupby("category", dropna=False)["amount"]
         .sum()
         .sort_values(ascending=False)
         .rename("total")
         .to_frame()
     )
-    # локализуем подписи категорий в индексе
     cat_totals_local = cat_totals.copy()
     cat_totals_local.index = cat_totals_local.index.map(fmt)
+    st.bar_chart(cat_totals_local)
 
-    st.bar_chart(cat_totals_local, use_container_width=True)
-
-    # ----- Последние операции -----
-    render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=True, lang=lang)
 
 # =================== Add Expense ===================
 elif choice == "add_expense":
@@ -932,233 +1000,211 @@ elif choice == "add_expense":
             st.rerun()
 
     # ---- таблица последних записей (как было у вас) ----
-    render_recent_expenses_table(ACTIVE_DB_PATH, n=10, show_title=False, lang=lang)
+    render_recent_expenses_table(ACTIVE_DB_PATH_STR, n=10, show_title=False, lang=lang)
 
-# ===== Browse & Filter (новый каркас) =====
-elif choice == "browse":
-    st.subheader(t("menu.browse", lang, default="Browse & Filter"))
-    st.caption(
+# ------ Browse & Filter ------
+if choice == "browse":
+    st.header(t("menu.browse", lang, default="Browse & Filter"))
+    st.write(
         "🔎 "
-        + t("browse.placeholder", lang, default="Page Browse & Filter (placeholder)")
+        + t("browse.placeholder", lang, default="Browse & Filter page (placeholder)")
     )
     render_flash()
-    if DEBUG_HUD:
-        debug_hud("Browse/pre")
 
-    # ---------- База и диапазоны ----------
-    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
-    base_df = load_df(db_path, _ver=get_data_version())  # без ограничений дат
-    if DEBUG_HUD:
-        debug_hud("Browse/post", base_df)
-
-    if base_df is not None and not base_df.empty:
-        base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
-        min_date = base_df["date"].min().date()
-        max_date = base_df["date"].max().date()
-        cats_all_from_db = sorted(
-            c for c in base_df["category"].dropna().unique().tolist()
-        )
-        min_amount_def = float(base_df["amount"].min())
-        max_amount_def = float(base_df["amount"].max())
-    else:
-        today = date.today()
-        min_date, max_date = today.replace(day=1), today
-        cats_all_from_db, min_amount_def, max_amount_def = [], 0.0, 0.0
-
-    cats, cat_labels = categories_ui(lang)
+    # i18n категорий
+    lang = st.session_state.get("lang", "en")
+    cats_all, cat_labels = categories_ui(lang)
     fmt = make_category_formatter(cat_labels)
-    if DEBUG_HUD:
-        debug_hud("labels", extra={"labels_lang": lang, "labels_cnt": len(cat_labels)})
 
-    cats_all = list(dict.fromkeys([*cats, *cats_all_from_db]))
+    # базовые данные (строго ОДНА активная БД)
+    base_df = load_df(ACTIVE_DB_PATH_STR, _ver=get_data_version())
 
     ss = st.session_state
 
-    # ---------- Инициализация (хранимые значения) ----------
-    if "bf_init" not in ss:
-        ss["bf_start"] = min_date.isoformat()
-        ss["bf_end"] = max_date.isoformat()
-        ss["bf_categories"] = cats_all.copy()
-        ss["bf_search"] = ""
-        ss["bf_min"] = min_amount_def
-        ss["bf_max"] = max_amount_def
-        ss["bf_init"] = True
+    def _coerce_date(v, fallback: date) -> date:
+        if not v:
+            return fallback
+        try:
+            # допускаем и 'YYYY-MM-DD', и datetime/date
+            return pd.to_datetime(v).date()
+        except Exception:
+            return fallback
 
-    # ---------- Обработка Reset / Apply ДО рендера ----------
-    if ss.pop("_bf_do_reset", False):
-        ss["bf_start"] = min_date.isoformat()
-        ss["bf_end"] = max_date.isoformat()
-        ss["bf_categories"] = cats_all.copy()
-        ss["bf_search"] = ""
-        ss["bf_min"] = min_amount_def
-        ss["bf_max"] = max_amount_def
-        st.rerun()
+    def _coerce_float(v):
+        if v in (None, "", "None"):
+            return None
+        try:
+            return float(v)
+        except Exception:
+            return None
 
-    if ss.pop("_bf_do_apply", False):
-        # переносим значения из *_input в хранилище и перерисовываем
-        ss["bf_start"] = ss["bf_start_input"].isoformat()
-        ss["bf_end"] = ss["bf_end_input"].isoformat()
-        ss["bf_categories"] = ss["bf_categories_input"]
-        ss["bf_search"] = ss["bf_search_input"]
-        ss["bf_min"] = ss["bf_min_input"]
-        ss["bf_max"] = ss["bf_max_input"]
-        ss["_flash"] = (
-            t("dashboard.filters_applied", lang, default="Filters applied"),
-            "⚙️",
-        )
-        st.rerun()
+    # Безопасно получаем границы по данным (если таблица пустая — берём today)
+    if base_df.empty:
+        data_min = data_max = pd.to_datetime(date.today())
+    else:
+        data_min = pd.to_datetime(base_df["date"], errors="coerce").min()
+        data_max = pd.to_datetime(base_df["date"], errors="coerce").max()
+        if pd.isna(data_min):
+            data_min = pd.to_datetime(date.today())
+        if pd.isna(data_max):
+            data_max = pd.to_datetime(date.today())
 
-    # ---------- Виджеты (используем отдельные ключи *_input) ----------
-    with st.form("filter_form", clear_on_submit=False):
+    # Нормализуем даты из session_state и зажимаем их в [data_min; data_max]
+    start_d = _coerce_date(ss.get("bf_start"), data_min.date())
+    end_d = _coerce_date(ss.get("bf_end"), data_max.date())
+    if start_d > end_d:
+        start_d, end_d = end_d, start_d
+    start_d = max(start_d, data_min.date())
+    end_d = min(end_d, data_max.date())
+
+    # Остальные поля фильтров
+    categories = ss.get("filter_categories") or []  # список ключей категорий
+    search_s = (ss.get("bf_search") or "").strip()
+    min_amt = _coerce_float(ss.get("bf_min"))
+    max_amt = _coerce_float(ss.get("bf_max"))
+    if min_amt is not None and max_amt is not None and min_amt > max_amt:
+        min_amt, max_amt = max_amt, min_amt
+
+    # Основной отфильтрованный DataFrame (единый для Browse/Charts)
+    df_filtered = get_filtered_df_for_period(
+        base_df,
+        start=start_d,
+        end=end_d,
+        categories=categories or None,  # None = «все категории»
+        search=search_s,
+        min_amount=min_amt,
+        max_amount=max_amt,
+    )
+
+    # Записываем обратно нормализованные значения, чтобы виджеты не "ломались"
+    ss["bf_start"] = start_d.isoformat()
+    ss["bf_end"] = end_d.isoformat()
+    ss["bf_min"] = 0.0 if min_amt is None else min_amt
+    ss["bf_max"] = max_amt
+
+    # ---- виджеты фильтров ----
+    with st.form("browse_form", clear_on_submit=False):
         c1, c2 = st.columns(2)
+
         with c1:
-            st.date_input(
+            start_d = st.date_input(
                 t("common.start", lang, default="Start"),
                 value=pd.to_datetime(ss["bf_start"]).date(),
-                min_value=min_date,
-                max_value=max_date,
+                min_value=data_min,
+                max_value=data_max,
                 key="bf_start_input",
             )
         with c2:
-            st.date_input(
+            end_d = st.date_input(
                 t("common.end", lang, default="End"),
                 value=pd.to_datetime(ss["bf_end"]).date(),
-                min_value=min_date,
-                max_value=max_date,
+                min_value=data_min,
+                max_value=data_max,
                 key="bf_end_input",
             )
 
-        c3, c4 = st.columns([2, 1])
-        with c3:
-            st.multiselect(
-                t("col.category", lang, default="Category"),
+        c1, c2 = st.columns(2)
+        with c1:
+            selected = st.multiselect(
+                t("browse.category", lang, default="Category"),
                 options=cats_all,
-                default=ss["bf_categories"],
+                default=ss.get("filter_categories", cats_all),
                 format_func=fmt,
-                key="bf_categories_input",
             )
-        with c4:
-            st.text_input(
-                t(
-                    "browse.search_contains",
-                    lang,
-                    default="Search (description contains)",
-                ),
-                value=ss["bf_search"],
-                key="bf_search_input",
+        with c2:
+            search_q = st.text_input(
+                t("browse.search", lang, default="Search (description contains)"),
+                value=ss.get("bf_search", ""),
             )
 
-        a1, a2 = st.columns(2)
-        with a1:
-            st.number_input(
+        c1, c2 = st.columns(2)
+        with c1:
+            min_amt = st.number_input(
                 t("browse.min_amount", lang, default="Min amount"),
-                value=float(ss["bf_min"]),
-                step=1.0,
-                key="bf_min_input",
+                value=float(ss.get("bf_min") or 0.0),
             )
-        with a2:
-            st.number_input(
+        with c2:
+            max_amt_str = st.text_input(
                 t("browse.max_amount", lang, default="Max amount"),
-                value=float(ss["bf_max"]),
-                step=1.0,
-                key="bf_max_input",
+                value="" if ss.get("bf_max") in (None, "") else str(ss["bf_max"]),
             )
 
-        col_btn1, col_btn2 = st.columns(2)
-        run = col_btn1.form_submit_button(t("common.apply", lang, default="Apply"))
-        reset = col_btn2.form_submit_button(t("browse.reset", lang, default="Reset"))
+        apply_clicked = st.form_submit_button(t("common.apply", lang, default="Apply"))
+        reset_clicked = st.form_submit_button(t("common.reset", lang, default="Reset"))
 
-    if reset:
-        ss["_bf_do_reset"] = True
+    # ---- обработка событий ----
+    if apply_clicked:
+        ss["bf_start"] = start_d.isoformat()
+        ss["bf_end"] = end_d.isoformat()
+        ss["filter_categories"] = selected or cats_all.copy()
+        ss["bf_search"] = (search_q or "").strip()
+
+        max_amt = None
+        if max_amt_str and str(max_amt_str).strip():
+            try:
+                max_amt = float(max_amt_str)
+            except ValueError:
+                max_amt = None
+        ss["bf_min"] = float(min_amt or 0.0)
+        ss["bf_max"] = max_amt
+
+        bump_data_version()
         st.rerun()
 
-    if run:
-        ss["_bf_do_apply"] = True
+    if reset_clicked:
+        ss["bf_start"] = data_min.isoformat()
+        ss["bf_end"] = data_max.isoformat()
+        ss["filter_categories"] = cats_all.copy()
+        ss["bf_search"] = ""
+        ss["bf_min"] = 0.0
+        ss["bf_max"] = None
+        bump_data_version()
         st.rerun()
 
-    # ---------- Фильтрация данных ----------
-    f = base_df.copy()
-    if not f.empty:
-        start = pd.to_datetime(ss["bf_start"]).date()
-        end = pd.to_datetime(ss["bf_end"]).date()
-        sel_cats = ss["bf_categories"]
-        sv = (ss["bf_search"] or "").strip().lower()
-        a_min, a_max = float(ss["bf_min"]), float(ss["bf_max"])
-
-        f = f[(f["date"].dt.date >= start) & (f["date"].dt.date <= end)]
-        if sel_cats:
-            f = f[f["category"].isin(sel_cats)]
-        if sv:
-            f = f[f["description"].astype(str).str.lower().str.contains(sv, na=False)]
-        f = f[(f["amount"] >= a_min) & (f["amount"] <= a_max)]
-
-    # ---------- KPI ----------
-    total = float(f["amount"].sum()) if not f.empty else 0.0
-    count = int(len(f))
-    avg = float(f["amount"].mean()) if count else 0.0
-
-    k1, k2, k3 = st.columns(3)
-    k1.metric(t("kpi.total", lang, default="Total"), f"{total:.2f}")
-    k2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
-    k3.metric(t("kpi.average", lang, default="Average"), f"{avg:.2f}")
-
-    st.divider()
-
-    # ---------- Параметры отображения ----------
-    st.subheader(t("browse.view_options", lang, default="View options"))
-    col_opts, _ = st.columns([1, 3])
-    with col_opts:
-        rm_dups = st.checkbox(
-            t("browse.remove_dups", lang, default="Remove exact duplicates"),
-            value=True,
-            key="opt_remove_dups",
-        )
-        newest_first = st.checkbox(
-            t("browse.newest_first", lang, default="Newest first"),
-            value=True,
-            key="opt_newest_first",
-        )
-
-    f_disp = prepare_df_for_view(f, remove_dups=rm_dups, newest_first=newest_first)
-
-    # ---------- Таблица (локализация категорий тем же fmt) ----------
-    f_show = f_disp.copy()
-    f_show["date"] = pd.to_datetime(f_show["date"], errors="coerce").dt.strftime(
-        "%Y-%m-%d"
+    # ---- вычисляем отфильтрованный df ----
+    df_filtered = get_filtered_df_for_period(
+        base_df,
+        start=pd.to_datetime(ss["bf_start"]).date(),
+        end=pd.to_datetime(ss["bf_end"]).date(),
+        categories=ss.get("filter_categories"),
+        search=ss.get("bf_search", ""),
+        min_amount=float(ss.get("bf_min") or 0.0),
+        max_amount=(None if ss.get("bf_max") in (None, "") else float(ss["bf_max"])),
     )
-    f_show["category"] = f_show["category"].map(fmt)
 
-    col_names = _col_labels(lang)
-    f_show = f_show.rename(columns=col_names)
+    # (Необязательно) быстрый антидупликат — если нужно
+    # if not df_filtered.empty:
+    #     df_filtered = df_filtered.drop_duplicates(
+    #         subset=["date", "category", "amount", "description"], keep="last"
+    #     )
 
-    # Заголовок таблицы результатов
+    # ---- KPI из ТОГО ЖЕ df ----
+    total = float(df_filtered["amount"].sum()) if not df_filtered.empty else 0.0
+    count = int(len(df_filtered))
+    avg = float(df_filtered["amount"].mean()) if not df_filtered.empty else 0.0
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric(t("kpi.total", lang, default="Total"), f"{total:,.2f}")
+    c2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
+    c3.metric(t("kpi.average", lang, default="Average"), f"{avg:,.2f}")
+
     st.subheader(t("browse.results", lang, default="Filtered results"))
 
-    st.dataframe(
-        f_show,
-        width="stretch",
-        hide_index=True,
-        column_config={
-            col_names["amount"]: st.column_config.NumberColumn(
-                t("col.amount", lang, default="Amount"), format="%.2f"
-            ),
-            col_names["date"]: st.column_config.DatetimeColumn(
-                t("col.date", lang, default="Date"), format="YYYY-MM-DD"
-            ),
-        },
-    )
+    # локализация категорий в таблице
+    if not df_filtered.empty and "category" in df_filtered.columns:
+        df_view = df_filtered.copy()
+        df_view["category"] = df_view["category"].map(fmt)
+    else:
+        df_view = df_filtered
 
-    st.divider()
-    st.subheader(t("browse.export_data", lang, default="Export Data"))
-    csv_bytes = f_disp.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 " + t("common.download_csv", lang, default="Download CSV"),
-        data=csv_bytes,
-        file_name="expenses_filtered.csv",
-        mime="text/csv",
-        key="btn_download_csv",
+    render_table(
+        df_view,
+        cols=["id", "date", "category", "amount", "description"],
+        lang=lang,
+        hide_index=True,
+        width="stretch",
+        height=None,
     )
-    export_df_to_excel_button(f_disp, filename="expenses_filtered.xlsx")
 
 
 # ================ Charts ================
@@ -1179,19 +1225,76 @@ elif choice == "charts":
         s = "" if key is None else str(key)
         return cat_labels.get(s, s)
 
-    # 0) исходные данные
-    db_path = str(st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db"))
-    df = load_df(db_path, _ver=get_data_version()).copy()
-    debug_hud("Charts/post", df)
-    df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date"])
+    # 0) исходные данные (активная БД + те же фильтры, что и на Dashboard/Browse)
+    db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
+    base_df = load_df(str(db_path), _ver=get_data_version()).copy()
 
-    # если у вас есть фильтры по датам/категориям выше — применяйте их здесь,
-    # чтобы ch_df уже соответствовал выбранному диапазону/категориям
-    ch_df = df.copy()
+    # приведение типов (на всякий случай)
+    base_df["amount"] = pd.to_numeric(base_df["amount"], errors="coerce").fillna(0)
+    base_df["date"] = pd.to_datetime(base_df["date"], errors="coerce")
+    base_df = base_df.dropna(subset=["date"])
 
-    # 2) агрегаты — БЕЗ масштабирования /100
+    # --- нормализация дат и фильтров для Charts/Browse (безопасно) ---
+
+    def _coerce_date(v, fallback: date) -> date:
+        """Преобразует str/date/datetime в date; при ошибке возвращает fallback."""
+        if isinstance(v, date) and not isinstance(v, datetime):
+            return v
+        if isinstance(v, datetime):
+            return v.date()
+        if isinstance(v, str) and v.strip():
+            ts = pd.to_datetime(v, errors="coerce")
+            if pd.notna(ts):
+                return ts.date()
+        return fallback
+
+    def _coerce_float(v):
+        """str/float -> float | None, пустые строки и None превращаем в None."""
+        if v is None:
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        s = str(v).strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except Exception:
+            return None
+
+    # границы по данным для подстраховки
+    data_min = pd.to_datetime(base_df["date"], errors="coerce").min()
+    data_max = pd.to_datetime(base_df["date"], errors="coerce").max()
+    data_min = data_min.date() if pd.notna(data_min) else date.today()
+    data_max = data_max.date() if pd.notna(data_max) else date.today()
+
+    ss = st.session_state
+
+    # берём из dash_*, если их нет — из bf_*, иначе жёстко ограничиваемся по данным
+    start_raw = ss.get("dash_start") or ss.get("bf_start")
+    end_raw = ss.get("dash_end") or ss.get("bf_end")
+
+    start_d = _coerce_date(start_raw, data_min)
+    end_d = _coerce_date(end_raw, data_max)
+
+    # приводим к остальным фильтрам
+    categories = ss.get("filter_categories") or None
+    search_s = (ss.get("bf_search") or "").strip()
+    min_amt = _coerce_float(ss.get("bf_min"))
+    max_amt = _coerce_float(ss.get("bf_max"))
+
+    # итоговый срез (единый фильтр)
+    ch_df = get_filtered_df_for_period(
+        base_df,
+        start=start_d,
+        end=end_d,
+        categories=categories,
+        search=search_s,
+        min_amount=min_amt,
+        max_amount=max_amt,
+    )
+
+    # 1) агрегаты — БЕЗ масштабирования /100
     # --- By category --------------------------------------------------------------
     if not ch_df.empty:
         bar_df = ch_df.groupby("category", dropna=False, as_index=False).agg(
@@ -1225,7 +1328,7 @@ elif choice == "charts":
     except Exception:
         pass
 
-    # 4) ВИЗУАЛИЗАЦИИ
+    # 2) ВИЗУАЛИЗАЦИИ
     st.markdown("#### " + t("dashboard.by_category", lang, default="By category"))
     if not bar_df.empty:
         bar = (
@@ -1253,7 +1356,8 @@ elif choice == "charts":
             )
             .properties(height=300)
         )
-        st.altair_chart(bar, use_container_width=True)
+        bar = bar.properties(height=300, width="container")
+        st.altair_chart(bar)
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
 
@@ -1280,7 +1384,8 @@ elif choice == "charts":
             )
             .properties(height=280)
         )
-        st.altair_chart(line, use_container_width=True)
+        line = line.properties(height=280, width="container")
+        st.altair_chart(line)
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
     # ============================================================================
@@ -1329,7 +1434,8 @@ elif choice == "charts":
                 )
                 .properties(height=300)
             )
-            st.altair_chart(chart, use_container_width=True)
+            chart = chart.properties(height=300, width="container")
+            st.altair_chart(chart)
         else:
             st.info(t("common.no_data", lang, default="No data to display."))
 
@@ -1822,7 +1928,7 @@ with log_col4:
 
 # 6) Подсказки (3 последних месяца)
 with st.expander("Suggestions (last 3 months)"):
-    df_hist = get_expenses_df(db_path=db_path_str)
+    df_hist = get_expenses_df(db_path=str(db_path_str))
     recs = []
     if df_hist is not None and not df_hist.empty:
         df_hist["ym"] = pd.to_datetime(df_hist["date"]).dt.strftime("%Y-%m")
