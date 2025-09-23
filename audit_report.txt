@@ -1,0 +1,178 @@
+=== TREE (trimmed) ===
+
+=== TOP DIRS ===
+396M	.
+377M	./.venv
+ 17M	./.git
+872K	./data
+564K	./backups
+224K	./__pycache__
+192K	./reports
+ 32K	./.pytest_cache
+ 16K	./tools
+4.0K	./.vscode
+
+=== TOP FILES ===
+160K	./data/default_expenses.db
+132K	./data/archives/expenses.20250826_211620.db
+132K	./backups/data_full_backup_20250902_170238/default_expenses.db
+132K	./backups/data_full_backup_20250902_170238/archives/expenses.20250826_211620.db
+ 88K	./data/archives/expenses.json.bak
+ 88K	./data/archives/expenses.json
+ 88K	./backups/data_full_backup_20250902_170238/expenses.json
+ 88K	./backups/data_full_backup_20250902_170238/archives/expenses.json.bak
+ 68K	./data/archives/expenses.db.bak
+ 68K	./backups/data_full_backup_20250902_170238/archives/expenses.db.bak
+ 68K	./app.py
+ 52K	./reports/plots/2025-08-18/monthly.png
+ 52K	./reports/plots/2025-08-17/monthly.png
+ 44K	./width_usage.txt
+ 44K	./reports/plots/2025-08-18/categories.png
+ 44K	./reports/plots/2025-08-17/categories.png
+ 44K	./app.py.bak
+ 32K	./messages.py
+ 28K	./project.py
+ 24K	./messages.py.bak
+ 20K	./data/user_expenses.db
+ 20K	./data/test_expenses.db
+ 20K	./data/ninja6_test6_expenses.db
+ 20K	./data/ninja5-test4_expenses.db
+ 20K	./data/archives/ninja4-test2_20250918_215129/ninja4-test2_expenses.db
+ 20K	./data/archives/ninja3-test_20250907_155534/ninja3-test_expenses.db
+ 20K	./data/archives/ninja2-test_20250906_163930/ninja2-test_expenses.db
+ 20K	./data/archives/ninja_test_dbfix_20250905_095710/ninja_test_dbfix_expenses.db
+ 20K	./data/archives/ninja_test_20250906_163939/ninja_test_expenses.db
+ 20K	./data/archives/ninja_AI_20250907_192631/ninja_AI_expenses.db
+ 20K	./data/archives/lapa-VIP_20250905_095722/lapa-VIP_expenses.db
+ 20K	./data/archive/20250902_205743/lapa/lapa_expenses.db
+ 20K	./data/archive/20250902_205732/lapa_vip/lapa_vip_expenses.db
+ 20K	./2025-09-01
+ 16K	./db.py
+ 12K	./i18n_audit.py
+ 12K	./data/archives/expenses.db
+ 12K	./backups/data_full_backup_20250902_170238/user_expenses.db
+ 12K	./backups/data_full_backup_20250902_170238/test_expenses.db
+ 12K	./backups/data_full_backup_20250902_170238/archives/expenses.db
+8.0K	./utils.py
+8.0K	./tools.sh
+8.0K	./Makefile
+8.0K	./limits_tools.py
+8.0K	./export.csv
+8.0K	./check_messages.py
+8.0K	./charts.py
+4.0K	./tools/tool2.py
+4.0K	./tools/tool1.py
+4.0K	./tools/limits_audit.csv
+
+=== DB/CSV/JSON ===
+-- .db
+./backups/data_full_backup_20250902_170238/archives/default.exp.20250826_211620.db
+./backups/data_full_backup_20250902_170238/archives/expenses.20250826_211620.db
+./backups/data_full_backup_20250902_170238/archives/expenses.db
+./backups/data_full_backup_20250902_170238/archives/root.exp.20250826_211620.db
+./backups/data_full_backup_20250902_170238/default_expenses.db
+./backups/data_full_backup_20250902_170238/default/expenses.db
+./backups/data_full_backup_20250902_170238/test_expenses.db
+./backups/data_full_backup_20250902_170238/test-1_expenses.db
+./backups/data_full_backup_20250902_170238/user_expenses.db
+./data/archive/20250902_205732/lapa_vip/lapa_vip_expenses.db
+./data/archive/20250902_205743/lapa/lapa_expenses.db
+./data/archives/default.exp.20250826_211620.db
+./data/archives/expenses.20250826_211620.db
+./data/archives/expenses.db
+./data/archives/lapa-VIP_20250905_095722/lapa-VIP_expenses.db
+./data/archives/ninja_AI_20250907_192631/ninja_AI_expenses.db
+./data/archives/ninja_test_20250906_163939/ninja_test_expenses.db
+./data/archives/ninja_test_dbfix_20250905_095710/ninja_test_dbfix_expenses.db
+./data/archives/ninja2-test_20250906_163930/ninja2-test_expenses.db
+./data/archives/ninja3-test_20250907_155534/ninja3-test_expenses.db
+./data/archives/ninja4-test2_20250918_215129/ninja4-test2_expenses.db
+./data/archives/root.exp.20250826_211620.db
+./data/archives/test-1_expenses.db
+./data/default_expenses.db
+./data/default/expenses.db
+./data/ninja5-test4_expenses.db
+./data/ninja6_test6_expenses.db
+./data/test_expenses.db
+./data/user_expenses.db
+./expenses.db
+-- .csv
+./.venv/lib/python3.12/site-packages/matplotlib/mpl-data/sample_data/data_x_x2_x3.csv
+./.venv/lib/python3.12/site-packages/matplotlib/mpl-data/sample_data/msft.csv
+./.venv/lib/python3.12/site-packages/matplotlib/mpl-data/sample_data/Stocks.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arccos.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arccosh.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arcsin.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arcsinh.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arctan.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-arctanh.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-cbrt.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-cos.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-cosh.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-exp.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-exp2.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-expm1.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-log.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-log10.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-log1p.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-log2.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-sin.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-sinh.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-tan.csv
+./.venv/lib/python3.12/site-packages/numpy/_core/tests/data/umath-validation-set-tanh.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/mt19937-testset-1.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/mt19937-testset-2.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/pcg64-testset-1.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/pcg64-testset-2.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/pcg64dxsm-testset-1.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/pcg64dxsm-testset-2.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/philox-testset-1.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/philox-testset-2.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/sfc64-testset-1.csv
+./.venv/lib/python3.12/site-packages/numpy/random/tests/data/sfc64-testset-2.csv
+./.venv/lib/python3.12/site-packages/tornado/test/csv_translations/fr_FR.csv
+./export_entertainment_es.csv
+./export_range_only.csv
+./export_transport_fr.csv
+./export.csv
+./tools/limits_audit.csv
+-- .json
+./.venv/etc/jupyter/nbconfig/notebook.d/pydeck.json
+./.venv/lib/python3.12/site-packages/altair/vegalite/v5/schema/vega-lite-schema.json
+./.venv/lib/python3.12/site-packages/black/resources/black.schema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft201909/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft202012/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft3/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft4/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft6/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema_specifications/schemas/draft7/metaschema.json
+./.venv/lib/python3.12/site-packages/jsonschema/benchmarks/issue232/issue.json
+./.venv/lib/python3.12/site-packages/matplotlib/backends/web_backend/package.json
+./.venv/lib/python3.12/site-packages/streamlit/static/manifest.json
+./.vscode/settings.json
+./backups/data_full_backup_20250902_170238/budget_limits.json
+./backups/data_full_backup_20250902_170238/default_budget_limits.json
+./backups/data_full_backup_20250902_170238/expenses.json
+./backups/data_full_backup_20250902_170238/test_budget_limits.json
+./backups/data_full_backup_20250902_170238/test-1_budget_limits.json
+./backups/data_full_backup_20250902_170238/user_budget_limits.json
+./data/archive/20250902_205732/lapa_vip/lapa_vip_budget_limits.json
+./data/archive/20250902_205743/lapa/lapa_budget_limits.json
+./data/archives/budget_limits.json
+./data/archives/expenses.json
+./data/archives/lapa-VIP_20250905_095722/lapa-VIP_budget_limits.json
+./data/archives/ninja_AI_20250907_192631/ninja_AI_budget_limits.json
+./data/archives/ninja_test_20250906_163939/ninja_test_budget_limits.json
+./data/archives/ninja_test_dbfix_20250905_095710/ninja_test_dbfix_budget_limits.json
+./data/archives/ninja2-test_20250906_163930/ninja2-test_budget_limits.json
+./data/archives/ninja3-test_20250907_155534/ninja3-test_budget_limits.json
+./data/archives/ninja4-test2_20250918_215129/ninja4-test2_budget_limits.json
+./data/archives/test-1_budget_limits.json
+./data/default_budget_limits.json
+./data/ninja5-test4_budget_limits.json
+./data/ninja6_test6_budget_limits.json
+./data/test_budget_limits.json
+./data/user_budget_limits.json
+./pyrightconfig.json
+
+=== >100MB FILES ===
