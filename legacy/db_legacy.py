@@ -8,9 +8,10 @@ SQLite database integration (LEGACY / ARCHIVE)
 """
 
 from __future__ import annotations
+
+import warnings
 from pathlib import Path
 from typing import Any
-import warnings
 
 __all__ = [
     "get_conn",
@@ -21,6 +22,7 @@ __all__ = [
     "delete_expense",
     "migrate_json_to_sqlite",
 ]
+
 
 def _deprecated_stub(name: str) -> None:
     warnings.warn(
@@ -33,26 +35,34 @@ def _deprecated_stub(name: str) -> None:
         f"[legacy] '{name}' has been archived. Migrate to the new data layer."
     )
 
+
 def get_conn(db_path: str | Path) -> Any:
     _deprecated_stub("get_conn")
+
 
 def categories_and_version(conn: Any) -> tuple[list[str], str]:
     _deprecated_stub("categories_and_version")
 
+
 def get_all_expenses(conn: Any) -> "pd.DataFrame":
     _deprecated_stub("get_all_expenses")
+
 
 def load_expenses(db_path: str | Path) -> "pd.DataFrame":
     _deprecated_stub("load_expenses")
 
+
 def update_expense(conn: Any, expense_id: int, **fields: Any) -> None:
     _deprecated_stub("update_expense")
+
 
 def delete_expense(conn: Any, expense_id: int) -> None:
     _deprecated_stub("delete_expense")
 
+
 def migrate_json_to_sqlite(json_path: str | Path, db_path: str | Path) -> None:
     _deprecated_stub("migrate_json_to_sqlite")
+
 
 if __name__ == "__main__":
     print(

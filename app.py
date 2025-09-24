@@ -4,7 +4,6 @@ import sqlite3
 from datetime import date
 from datetime import date as _date
 from datetime import datetime
-from io import BytesIO
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple, cast
 
@@ -144,41 +143,6 @@ _db, _limits = get_active_paths()
 st.caption(f"DB: {_db} — Limits: {_limits.name}")
 
 
-def export_df_to_excel_button(df: pd.DataFrame, filename: str = "expenses.xlsx"):
-    if df.empty:
-        st.info("Нет данных для экспорта.")
-        return
-
-    # Пытаемся выбрать доступный движок
-    engine = None
-    try:
-        import xlsxwriter  # noqa: F401
-
-        engine = "xlsxwriter"
-    except ImportError:
-        try:
-            import openpyxl  # noqa: F401
-
-            engine = "openpyxl"
-        except ImportError:
-            st.error(
-                "Для экспорта в Excel установите один из пакетов: "
-                "`pip install XlsxWriter` или `pip install openpyxl`."
-            )
-            return
-
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine=engine) as writer:
-        df.to_excel(writer, index=False, sheet_name="Expenses")
-
-    st.download_button(
-        label="⬇️ Download Excel",
-        data=buf.getvalue(),
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-
 def prepare_df_for_view(
     df: pd.DataFrame,
     *,
@@ -230,18 +194,6 @@ def _mdonth_key(date_value):
     Преобразует дату в строку формата YYYY-MM для работы с месячными лимитами
     """
     return date_value.strftime("%Y-%m")
-
-
-def _collect_limits_for_month(mk: str, categories: list[str]) -> dict[str, float]:
-    """Собирает текущие значения из полей редактирования в st.session_state."""
-    out: dict[str, float] = {}
-    for cat in categories:
-        raw = st.session_state.get(f"limit_{mk}_{cat}")
-        try:
-            out[cat] = float(raw) if raw is not None else 0.0
-        except Exception:
-            out[cat] = 0.0
-    return out
 
 
 def _collect_limits_from_form(prefix: str) -> Dict[str, float]:
@@ -299,15 +251,11 @@ def render_table(
     # 2) Нормализация аргументов под разные версии Streamlit
     st_kwargs: dict = {}
 
-    # ширина: новые версии — width='stretch'/'content'/int,
-    # старые — use_container_width=True/False
+    # ширина: новые версии — width='stretch'/'content'/int
     if isinstance(width, int):
         st_kwargs["width"] = width
     elif width in ("stretch", "content"):
-        # Поддержим обе ветки: где-то уже есть width, где-то ещё use_container_width.
-        # Передадим то и другое безопасно — Streamlit возьмёт подходящее.
         st_kwargs["width"] = width  # для новых версий
-        st_kwargs["use_container_width"] = width == "stretch"  # для старых
     # если None — просто не передаем ничего
 
     # высота: передаем ТОЛЬКО если не None
@@ -461,34 +409,6 @@ def make_fmt(labels: dict[str, str]) -> LabelFn:
     return _fmt
 
 
-def get_expenses_view(
-    *, db_path: str, start: str, end: str, lang: str, newest_first: bool = True
-) -> Tuple[pd.DataFrame, LabelFn, dict[str, str]]:
-    """
-    Единый пайплайн данных для всех страниц:
-      1) load_df(..., _ver=get_data_version())
-      2) prepare_df_for_view(..., remove_dups=True, newest_first=...)
-      3) локализация КОЛОНКИ 'category' (отображение; ключи в БД не трогаем)
-
-    Возвращает:
-      df  — нормализованные операции с локализованной колонкой 'category'
-      fmt — форматтер для категорий (Any -> str)
-      labels — словарь {key -> label}
-    """
-    ver = get_data_version()
-    raw = load_df(str(db_path), start, end, _ver=ver)
-    df = prepare_df_for_view(raw, remove_dups=True, newest_first=newest_first)
-
-    _, labels = categories_ui(lang)  # labels: {тех. ключ -> локализованный label}
-    fmt = make_fmt(labels)
-
-    if "category" in df.columns:
-        df = df.copy()
-        df["category"] = df["category"].map(fmt)
-
-    return df, fmt, labels
-
-
 # ---- ЕДИНЫЙ ФИЛЬТР ПО ПЕРИОДУ + ПОЛЯМ BROWSE ----
 def get_filtered_df_for_period(
     base_df: pd.DataFrame,
@@ -539,30 +459,6 @@ limits = load_monthly_limits(user=current_user())
 save_monthly_limits(limits, user=current_user())
 
 
-def _fetch_categories() -> list[str]:
-    # 1) если есть list_categories в db.py — используйте его
-    try:
-        from db import (
-            list_categories as _list_categories,
-        )  # локальный импорт на случай отсутствия
-
-        cats = _list_categories()
-        if cats:
-            return cats
-    except Exception:
-        pass
-    # 2) иначе соберём уникальные категории из БД
-    try:
-        db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-        df = get_expenses_df(db_path=str(db_path))
-        if "category" in df.columns and not df.empty:
-            return sorted(map(str, df["category"].dropna().unique().tolist()))
-    except Exception:
-        pass
-    # 3) дефолт
-    return ["food", "transport", "health", "entertainment", "other"]
-
-
 # ===== Add Expense: helpers =====
 
 
@@ -610,21 +506,6 @@ def apply_form_reset(keys: dict[str, str]) -> None:
         ss[keys["amount"]] = 0.0
         ss[keys["note"]] = ""
         ss[keys["date"]] = ss.get(keys["date"], _date.today())
-
-
-def render_add_expense_page(lang: str) -> None:
-    ss = st.session_state
-    user = current_user()  # получаем имя пользователя
-    keys = add_form_keys(user)  # генерируем ключи формы
-    apply_form_reset(keys)  # сброс формы для этого пользователя
-
-
-def cat_label_fn_factory(labels: dict[str, str]) -> LabelFn:
-    def fmt(key: Any) -> str:  # <<< имя параметра "key", как ожидает тип
-        s = "" if key is None else str(key)
-        return labels.get(s, s)
-
-    return fmt
 
 
 def _localize_category_column(df: pd.DataFrame, labels: dict[str, str]) -> pd.DataFrame:
