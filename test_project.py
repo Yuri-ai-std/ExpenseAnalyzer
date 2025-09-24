@@ -9,9 +9,14 @@ import pandas as pd
 import pytest
 
 # — тестируемые модули/функции
-from db import add_expense, ensure_schema, get_expenses_df
 from messages import messages as ALL_MESSAGES
-from project import check_budget_limits, suggest_limits_for_month
+from project import (
+    check_budget_limits,
+    suggest_limits_for_month,
+    add_expense,
+    ensure_schema,
+    get_expenses_df,
+)
 from utils import month_key
 
 # ---------- фикстуры ----------
@@ -69,7 +74,7 @@ def sample_data(tmp_db: str):
 
 def test_get_expenses_df_reads_from_given_db_path(sample_data: str):
     """get_expenses_df должен брать данные именно из переданного db_path."""
-    df = get_expenses_df(db_path=sample_data)
+    df = get_expenses_df(db_path=str(sample_data))
     assert isinstance(df, pd.DataFrame)
     # Вставлено 8 строк
     assert len(df) >= 8

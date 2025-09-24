@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
-
 from db import get_expenses_df
 from utils import prev_month_key
 
@@ -50,7 +49,7 @@ def check_budget_limits(
     budget_limits = budget_limits or {}
 
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path, start_date=start_date, end_date=end_date)
+    df = get_expenses_df(db_path=str(db_path), start_date=start_date, end_date=end_date)
     if df is None or df.empty:
         return []
 
@@ -96,7 +95,7 @@ def suggest_limits_for_month(user: str, month_key: str) -> Dict[str, float]:
         cur = prev_month_key(cur)
 
     db_path = st.session_state.get("ACTIVE_DB_PATH", "data/default_expenses.db")
-    df = get_expenses_df(db_path=db_path)
+    df = get_expenses_df(db_path=str(db_path))
     if df is None or df.empty:
         return {}
 

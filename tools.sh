@@ -117,6 +117,69 @@ Usage: $0 [tests|export|smoke|messages|all]
 EOF
 }
 
+# ---------- 6) поиск неиспользуемого кода (vulture) ----------
+find_unused() {
+  info "Поиск неиспользуемого кода (vulture)"
+  python3 - <<'PY' || exit 1
+import sys, subprocess
+def ensure(mod):
+    try:
+        __import__(mod)
+        return True
+    except ModuleNotFoundError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-U", mod])
+        __import__(mod); return True
+
+ensure("vulture")
+
+# Формируем команду; исключаем виртуалки/кеши/данные
+cmd = [
+    sys.executable, "-m", "vulture",
+    ".", "--min-confidence", "60",
+    "--exclude", ".venv,**/__pycache__,data,_archive_legacy"
+]
+print("Running:", " ".join(cmd))
+code = subprocess.call(cmd)
+sys.exit(code)
+PY
+
+  if [ $? -eq 0 ]; then
+    ok "Vulture отчёт: либо пусто, либо предупреждения (см. вывод выше)."
+  else
+    err "Vulture нашёл кандидатов на удаление (см. вывод выше)."
+  fi
+}
+
+# ---------- 7) быстрый эвристический поиск (ripgrep) ----------
+find_unused_fast() {
+  info "Быстрый эвристический поиск неиспользуемых функций (ripgrep)"
+  if ! command -v rg >/dev/null 2>&1; then
+    err "ripgrep (rg) не найден. Установите: brew install ripgrep"; return 1
+  fi
+
+  tmpdir="$(mktemp -d)"; trap 'rm -rf "$tmpdir"' EXIT
+
+  # Все определения функций
+  rg -n --py '^\s*def\s+([A-Za-z_]\w*)\s*\(' \
+     -g '!data/**' -g '!.venv/**' -g '!**/__pycache__/**' \
+     --hidden --sort path > "$tmpdir/all_defs.txt"
+
+  # Все «вызовы» name(
+  rg -n --py '([A-Za-z_]\w*)\s*\(' \
+     -g '!data/**' -g '!.venv/**' -g '!**/__pycache__/**' \
+     --hidden --sort path > "$tmpdir/all_calls.txt"
+
+  # Имена (грубо) и разница
+  awk '{print $0}' "$tmpdir/all_defs.txt"  | sed -E 's/.*def\s+([A-Za-z_][A-Za-z0-9_]*)\(.*/\1/' | sort -u > "$tmpdir/defs.txt"
+  awk '{print $0}' "$tmpdir/all_calls.txt" | sed -E 's/.*\b([A-Za-z_][A-Za-z0-9_]*)\s*\(.*/\1/' | sort -u > "$tmpdir/calls.txt"
+
+  echo
+  echo "⚠️  Черновой список имён, которые определены, но не найдены среди вызовов:"
+  comm -23 "$tmpdir/defs.txt" "$tmpdir/calls.txt" | sed 's/^/  - /'
+  echo
+  ok "Готово (эвристика; возможны ложные срабатывания — рефлексия/декораторы/CLI)."
+}
+
 main() {
   local cmd="${1:-all}"
   case "${cmd}" in
@@ -125,6 +188,8 @@ main() {
     smoke)  smoke_menu ;;
     messages)   check_messages ;;
     all)    run_tests; check_export; smoke_menu; check_messages ;;
+    unused) find_unused ;;
+    unused-fast) find_unused_fast ;;
     -h|--help|help) usage ;;
     *) usage; exit 1 ;;
   esac
