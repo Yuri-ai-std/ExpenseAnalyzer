@@ -9,9 +9,14 @@ import pandas as pd
 import pytest
 
 # — тестируемые модули/функции
-from db import add_expense, ensure_schema, get_expenses_df
 from messages import messages as ALL_MESSAGES
-from project import check_budget_limits, suggest_limits_for_month
+from project import (
+    check_budget_limits,
+    suggest_limits_for_month,
+    add_expense,
+    ensure_schema,
+    get_expenses_df,
+)
 from utils import month_key
 
 # ---------- фикстуры ----------

@@ -10,16 +10,17 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
-
-import db  # <-- ДОБАВИЛИ: чтобы можно было писать db.get_expenses_df и т.п.
 from charts import show_charts
 
 # ПУБЛИЧНАЯ запись в БД — отдельным алиасом
 # всё про БД – только из db.py (функции)
-from db import DB_PATH  # если реально используете константу
-from db import ensure_schema  # инициализация схемы при старте
-from db import get_expenses_df  # универсальная выборка как DataFrame
-from db import list_categories as db_list_categories
+from db import (
+    get_db_path,
+    ensure_schema,  # инициализация схемы при старте
+    get_expenses_df,  # универсальная выборка как DataFrame
+    list_categories,
+    add_expense as db_add_expense,  # добавление расхода в БД
+)
 from messages import messages
 from utils import prev_month_key
 
@@ -28,7 +29,6 @@ REPORTS_DIR = Path("reports/plots")
 # Старые имена файлов — оставлены только для обратной совместимости/экспорта
 EXPENSES_FILE = "expenses.json"
 BUDGET_LIMITS_FILE = "budget_limits.json"
-DATABASE_FILE = "expenses.db"
 LANG = "en"
 # en / fr / es - можешь переключать
 
@@ -306,26 +306,21 @@ def export_to_csv(db_path, out_path, start_date=None, end_date=None, category=No
 
 
 # --------------------------- ввод расходов ---------------------------
-
-
 def add_expense(
     date: str,
     category: str,
     amount: float,
     description: Optional[str] = None,
-    db_path: str = DB_PATH,
+    db_path: Optional[str] = None,  # <- убрали зависимость от DB_PATH
 ) -> None:
-    """
-    Высокоуровневая обёртка без интерактива — просто прокидывает в БД.
-    Удобно использовать в тестах.
-    """
-    desc = (description or "").strip()
-    db.add_expense(
+    # просто делегируем в слой db
+
+    db_add_expense(
         date=date,
         category=category,
         amount=amount,
-        description=desc,
-        db_path=db_path,
+        description=description or "",
+        db_path=db_path,  # db сам разберётся с None/путём по умолчанию
     )
 
 
@@ -450,11 +445,11 @@ def _set_language():
         print("Unsupported language. Keeping current.")
 
 
-def fallback_categories() -> list[str]:
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT DISTINCT category FROM expenses ORDER BY category")
-        return [str(r[0]) for r in cur.fetchall()]
+def fallback_categories(db_path: Optional[str] = None) -> list[str]:
+    from db import get_expenses_df
+
+    df = get_expenses_df(db_path=db_path)
+    return sorted({str(c) for c in df["category"].dropna().astype(str)})
 
 
 def _df_records(df):
@@ -589,14 +584,14 @@ def _msgs_lang():
 def add_expense_adapter() -> None:
     """
     Диалог с пользователем + минимальная валидация,
-    потом запись в БД через db.add_expense().
+    потом запись в БД через add_expense().
     """
-    # 1) выбор категории (пример — подставьте ваш источник)
     categories = (
-        db_list_categories()
+        list_categories()
         if "db_list_categories" in globals()
         else fallback_categories()
     )
+
     if not categories:
         print("No categories defined.")
         return
@@ -634,7 +629,7 @@ def add_expense_adapter() -> None:
     description: Optional[str] = desc_input or None
 
     # 5) запись в БД
-    db.add_expense(
+    add_expense(
         date=date_str,
         category=category,
         amount=amount,

@@ -11,7 +11,13 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from db import add_expense, ensure_db, get_db_path, get_expenses_df, list_categories
+from project import (
+    add_expense,
+    ensure_schema,
+    get_db_path,
+    get_expenses_df,
+    list_categories,
+)
 from flash import flash, render_flash
 
 # CSV/аудит для лимитов
@@ -75,7 +81,7 @@ def assert_db_path(p: str | Path) -> Path:
     path = Path(p)
     if path.suffix != ".db":
         raise ValueError(f"ACTIVE_DB_PATH must be a .db file, got: {path}")
-    ensure_db(path)
+    ensure_schema(path)
     return path
 
 
@@ -1455,7 +1461,7 @@ with c3:
                 )
             )
         else:
-            ensure_db(get_db_path(new_name))
+            ensure_schema(get_db_path(new_name))
             switch_user(
                 new_name,
                 toast=t(
@@ -1585,7 +1591,7 @@ def _active_user() -> str:
 # Активные пути: DB как str, limits как Path (без внешних зависимостей)
 def _active_paths() -> tuple[str, Path]:
     user = _active_user()
-    db_path_str = str(get_db_path(user))
+    db_path_str = get_db_path(user)  # ← снова получаем реальный путь к БД
     limits_file = Path("data") / f"{user}_budget_limits.json"
     return db_path_str, limits_file
 
