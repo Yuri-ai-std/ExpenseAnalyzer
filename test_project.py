@@ -11,11 +11,11 @@ import pytest
 # — тестируемые модули/функции
 from messages import messages as ALL_MESSAGES
 from project import (
-    check_budget_limits,
-    suggest_limits_for_month,
     add_expense,
+    check_budget_limits,
     ensure_schema,
     get_expenses_df,
+    suggest_limits_for_month,
 )
 from utils import month_key
 

@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
+
 from db import get_expenses_df
 from utils import prev_month_key
 

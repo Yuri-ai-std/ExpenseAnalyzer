@@ -8,16 +8,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Tuple, cast
 
 import altair as alt
+from attrs import field
 import pandas as pd
 import streamlit as st
+import numpy as np
 
-from project import (
-    add_expense,
-    ensure_schema,
-    get_db_path,
-    get_expenses_df,
-    list_categories,
-)
 from flash import flash, render_flash
 
 # CSV/аудит для лимитов
@@ -30,6 +25,13 @@ from limits_tools import (
     limits_to_csv_bytes,
 )
 from messages import t
+from project import (
+    add_expense,
+    ensure_schema,
+    get_db_path,
+    get_expenses_df,
+    list_categories,
+)
 from utils import (
     db_path_for,
     limits_path_for,
@@ -413,6 +415,46 @@ def make_fmt(labels: dict[str, str]) -> LabelFn:
         return labels.get(s, s)
 
     return _fmt
+
+
+# --- Locale-aware labelExpr builders for Vega (Altair) ---
+
+
+def _vega_month_expr(lang: str, short: bool = True) -> str:
+    """JS-выражение для вывода месяцев в нужной локали (массив строк)."""
+    if lang == "fr":
+        months = (
+            "['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.']"
+            if short
+            else "['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']"
+        )
+    elif lang == "es":
+        months = (
+            "['ene.','feb.','mar.','abr.','may.','jun.','jul.','ago.','sept.','oct.','nov.','dic.']"
+            if short
+            else "['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre']"
+        )
+    else:  # en
+        months = (
+            "['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']"
+            if short
+            else "['January','February','March','April','May','June','July','August','September','October','November','December']"
+        )
+    return f"{months}[month(datum.value)]"
+
+
+def _vega_day_month_expr(lang: str) -> str:
+    """'DD mon' на нужном языке (например '12 sept.')."""
+    return "timeFormat(datum.value, '%d ') + " + _vega_month_expr(lang, short=True)
+
+
+def _vega_month_with_year_on_jan_expr(lang: str, short: bool = True) -> str:
+    """Месяц в нужной локали; для января добавляет год: 'jan 2024' / 'janv. 2024' / 'ene. 2024'."""
+    mon = _vega_month_expr(lang, short=short)
+    # Если январь (month()==0) → добавляем год, иначе только месяц
+    return (
+        f"(month(datum.value)==0 ? {mon} + ' ' + timeFormat(datum.value, '%Y') : {mon})"
+    )
 
 
 # ---- ЕДИНЫЙ ФИЛЬТР ПО ПЕРИОДУ + ПОЛЯМ BROWSE ----
@@ -1091,12 +1133,12 @@ elif choice == "charts":
     st.caption(
         "📈 " + t("charts.placeholder", lang, default="Charts page (placeholder)")
     )
-    render_flash()
-    debug_hud("Charts/pre")
+    #  render_flash()
+    #  debug_hud("Charts/pre")
 
     lang = st.session_state.get("lang", "en")
     cats, cat_labels = categories_ui(lang)
-    debug_hud("labels", extra={"labels_lang": lang, "labels_cnt": len(cat_labels)})
+    #  debug_hud("labels", extra={"labels_lang": lang, "labels_cnt": len(cat_labels)})
 
     def _fmt_cat(key: object) -> str:
         s = "" if key is None else str(key)
@@ -1205,8 +1247,95 @@ elif choice == "charts":
     except Exception:
         pass
 
+    # 4) Zoom selectors (Altair 4/5 compatible)
+    # Подключаемся до блока визуализаций (bar/line), один раз на страницу.
+
+    # Altair 5 использует add_params; Altair 4 — add_selection.
+    try:
+        zoom_y = alt.selection_interval(
+            bind="scales", encodings=["y"]
+        )  # зум по Y (бар-чарт)
+        zoom_xy = alt.selection_interval(bind="scales")  # зум по X+Y (линейный)
+        _ALT_USES_PARAMS = True
+    except Exception:
+        zoom_y = alt.selection(type="interval", bind="scales", encodings=["y"])
+        zoom_xy = alt.selection(type="interval", bind="scales")
+        _ALT_USES_PARAMS = False
+
+    def _attach_zoom(chart, sel):
+        """Кросс-версионная привязка zoom-selection для Altair 4/5."""
+        try:
+            return (
+                chart.add_params(sel) if _ALT_USES_PARAMS else chart.add_selection(sel)
+            )
+        except Exception:
+            try:
+                return chart.add_params(sel)
+            except Exception:
+                return chart.add_selection(sel)
+
     # 2) ВИЗУАЛИЗАЦИИ
+    CHART_H = 320  # единая высота для всех графиков
+
+    # --- Тумблеры ---
+    enable_zoom = st.toggle(
+        t("charts.enable_zoom", lang, default="🔍 Enable zoom"),
+        value=True,
+        help=t("charts.enable_zoom_help", lang, default="Scroll to zoom, drag to pan"),
+        key="charts_enable_zoom",
+    )
+
+    enable_logy = (
+        st.toggle(
+            t("charts.enable_logy", lang, default="Logarithmic Y scale"),
+            value=False,
+            help=t(
+                "charts.enable_logy_help",
+                lang,
+                default="Affects the 'BY date' chart only",
+            ),
+            key="charts_enable_logy",
+        ),
+    )
+
+    # --- Вспомогательная функция для выбора шкалы ---
+    def _mk_y_scale(df: pd.DataFrame) -> alt.Scale:
+        use_log = bool(st.session_state.get("charts_enable_logy", False))
+        if use_log and not df.empty:
+            vals = pd.to_numeric(df["total"], errors="coerce")
+            if (vals > 0).any():
+                # clamp=True — отсекаем случайные отрицательные, nice=False — без «красивых» границ (чтобы не прыгало)
+                return alt.Scale(type="log", clamp=True, nice=False)
+        return alt.Scale(type="linear")
+
+    def _y_field_and_df(
+        df: pd.DataFrame, field: str = "total"
+    ) -> tuple[str, pd.DataFrame]:
+        """
+        Для лог-шкалы заменяем значения <= 0 на NaN и убеждаемся, что тип float.
+        Если после фильтрации не осталось положительных значений — возвращаем исходное поле.
+        """
+        use_log = bool(st.session_state.get("charts_enable_logy", False))
+        if not use_log or df.empty:
+            return f"{field}:Q", df
+
+        vals = pd.to_numeric(df[field], errors="coerce")
+        if not (vals > 0).any():
+            # Нет положительных значений -> лог не имеет смысла
+            return f"{field}:Q", df
+
+        df2 = df.copy()
+        safe_col = f"{field}_pos"
+        # принудительно float и NaN для неположительных
+        df2[safe_col] = pd.to_numeric(df2[field], errors="coerce").astype(float)
+        df2[safe_col] = df2[safe_col].where(df2[safe_col] > 0, np.nan)
+        return f"{safe_col}:Q", df2
+
+    # =====================================================================
+    # By category
+    # =====================================================================
     st.markdown("#### " + t("dashboard.by_category", lang, default="By category"))
+
     if not bar_df.empty:
         bar = (
             alt.Chart(bar_df)
@@ -1219,6 +1348,7 @@ elif choice == "charts":
                     "total:Q",
                     title=t("kpi.total", lang, default="Total"),
                     axis=alt.Axis(format=",.2f"),
+                    scale=alt.Scale(type="linear"),  # всегда линейная для бар-чарта
                 ),
                 tooltip=[
                     alt.Tooltip(
@@ -1231,24 +1361,57 @@ elif choice == "charts":
                     ),
                 ],
             )
-            .properties(height=300)
+            .properties(height=CHART_H, width="container")
         )
-        bar = bar.properties(height=300, width="container")
+        if st.session_state.get("charts_enable_zoom", True):
+            bar = _attach_zoom(bar, zoom_y)
         st.altair_chart(bar)
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
 
+    # =====================================================================
+    # By date
+    # =====================================================================
     st.markdown("#### " + t("charts.by_date", lang, default="By date"))
+
     if not line_df.empty:
+        # адаптивный формат подписей оси X
+        _span_days = (
+            (end_d - start_d).days
+            if "end_d" in locals() and "start_d" in locals()
+            else 9999
+        )
+        if _span_days <= 60:
+            _label_expr = _vega_day_month_expr(lang)  # '12 sep'
+            _tick_count = 8
+        else:
+            _label_expr = _vega_month_with_year_on_jan_expr(
+                lang
+            )  # 'jan 2024', 'feb', ...
+            _tick_count = 10
+
+        # подготовка поля Y с учётом лог-шкалы (если включена)
+        y_field_line, line_src = _y_field_and_df(line_df)
+
         line = (
-            alt.Chart(line_df)
+            alt.Chart(line_src)
             .mark_line(point=True)
             .encode(
-                x=alt.X("date:T", title=t("charts.date", lang, default="Date")),
+                x=alt.X(
+                    "date:T",
+                    title=t("charts.date", lang, default="Date"),
+                    axis=alt.Axis(
+                        labelAngle=-30,
+                        labelExpr=_label_expr,
+                        tickCount=_tick_count,
+                        labelOverlap="greedy",
+                    ),
+                ),
                 y=alt.Y(
-                    "total:Q",
+                    y_field_line,
                     title=t("kpi.total", lang, default="Total"),
                     axis=alt.Axis(format=",.2f"),
+                    scale=_mk_y_scale(line_df),
                 ),
                 tooltip=[
                     alt.Tooltip("date:T", title=t("charts.date", lang, default="Date")),
@@ -1259,13 +1422,14 @@ elif choice == "charts":
                     ),
                 ],
             )
-            .properties(height=280)
+            .properties(height=CHART_H, width="container")
         )
-        line = line.properties(height=280, width="container")
+
+        if st.session_state.get("charts_enable_zoom", True):
+            line = _attach_zoom(line, zoom_xy)
         st.altair_chart(line)
     else:
         st.info(t("common.no_data", lang, default="No data to display."))
-    # ============================================================================
 
     # ---------- Экспандер: круговая по категориям ----------
     with st.expander(
