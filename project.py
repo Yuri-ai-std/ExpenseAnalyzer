@@ -10,17 +10,15 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import streamlit as st
+
 from charts import show_charts
 
 # ПУБЛИЧНАЯ запись в БД — отдельным алиасом
 # всё про БД – только из db.py (функции)
-from db import (
-    get_db_path,
-    ensure_schema,  # инициализация схемы при старте
-    get_expenses_df,  # универсальная выборка как DataFrame
-    list_categories,
-    add_expense as db_add_expense,  # добавление расхода в БД
-)
+from db import add_expense as db_add_expense  # добавление расхода в БД
+from db import ensure_schema  # инициализация схемы при старте
+from db import get_expenses_df  # универсальная выборка как DataFrame
+from db import get_db_path, list_categories
 from messages import messages
 from utils import prev_month_key
 
