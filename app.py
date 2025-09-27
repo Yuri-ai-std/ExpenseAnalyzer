@@ -1137,7 +1137,7 @@ if choice == "browse":
             ["id", "date", "category", "amount", "description"]
         ].copy()
         show_df["category"] = show_df["category"].map(lambda k: fmt(k))
-        st.dataframe(show_df, use_container_width=True, hide_index=True)
+        st.dataframe(show_df, width="stretch", hide_index=True)
 
 
 # ================ Charts ================
