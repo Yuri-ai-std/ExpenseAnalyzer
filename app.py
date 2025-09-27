@@ -922,8 +922,21 @@ elif choice == "add_expense":
             request_form_reset(keys)
             st.rerun()
 
-    # ---- таблица последних записей (как было у вас) ----
-    render_recent_expenses_table(ACTIVE_DB_PATH_STR, n=10, show_title=False, lang=lang)
+    # ---- таблица сегодняшних расходов ----
+    today = pd.to_datetime("today").date()
+
+    df_today = get_expenses_df(ACTIVE_DB_PATH_STR)
+    df_today = df_today[pd.to_datetime(df_today["date"]).dt.date == today]
+
+    if not df_today.empty:
+        st.subheader(t("add_expense.today_table", lang, default="Expenses added today"))
+        st.dataframe(
+            df_today,
+            width="stretch",  # ✅ новая версия API
+            hide_index=True,
+        )
+    else:
+        st.info(t("add_expense.no_today", lang, default="No expenses added today yet."))
 
 # ====== Browse & Filter ======
 if choice == "browse":
