@@ -5,13 +5,13 @@ from datetime import date
 from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, cast
+from typing import Any, Callable, Dict, Optional, Tuple, cast
 
 import altair as alt
-from attrs import field
+import numpy as np
 import pandas as pd
 import streamlit as st
-import numpy as np
+from attrs import field
 
 from flash import flash, render_flash
 
@@ -464,7 +464,7 @@ def get_filtered_df_for_period(
     start: date,
     end: date,
     categories: list[str] | None = None,
-    search: str = "",
+    search: Optional[str] = None,
     min_amount: float | None = None,
     max_amount: float | None = None,
 ) -> pd.DataFrame:
@@ -472,24 +472,28 @@ def get_filtered_df_for_period(
     if df.empty:
         return df
 
-    # дата
-    df = df[(df["date"] >= pd.to_datetime(start)) & (df["date"] <= pd.to_datetime(end))]
+    # нормализуем даты и фильтруем по периоду
+    d = pd.to_datetime(df["date"], errors="coerce")
+    df = df[~d.isna()]
+    df = df[(d >= pd.to_datetime(start)) & (d <= pd.to_datetime(end))]
 
     # категории (если заданы)
     if categories:
         df = df[df["category"].astype(str).isin(categories)]
 
-    # поиск по описанию
-    if search:
-        s = search.strip().lower()
-        if s:
-            df = df[df["description"].astype(str).str.lower().str.contains(s, na=False)]
-
-    # мин/макс суммы
+    # суммы
     if min_amount is not None:
-        df = df[df["amount"] >= float(min_amount)]
+        df = df[df["amount"].astype(float) >= float(min_amount)]
     if max_amount is not None:
-        df = df[df["amount"] <= float(max_amount)]
+        df = df[df["amount"].astype(float) <= float(max_amount)]
+
+    # ПОИСК: и по description, и по category (без учета регистра)
+    if search:
+        s = search.strip().casefold()
+        if s:
+            cat = df["category"].fillna("").astype(str).str.casefold()
+            desc = df["description"].fillna("").astype(str).str.casefold()
+            df = df[cat.str.contains(s) | desc.str.contains(s)]
 
     return df
 
@@ -921,158 +925,174 @@ elif choice == "add_expense":
     # ---- таблица последних записей (как было у вас) ----
     render_recent_expenses_table(ACTIVE_DB_PATH_STR, n=10, show_title=False, lang=lang)
 
-# ------ Browse & Filter ------
+# ====== Browse & Filter ======
 if choice == "browse":
-    st.header(t("menu.browse", lang, default="Browse & Filter"))
-    st.write(
-        "🔎 "
+    st.header(t("browse.title", lang, default="Browse & Filter"))
+    st.caption(
+        "🔍 "
         + t("browse.placeholder", lang, default="Browse & Filter page (placeholder)")
     )
-    render_flash()
-
-    # i18n категорий
-    lang = st.session_state.get("lang", "en")
-    cats_all, cat_labels = categories_ui(lang)
-    fmt = make_category_formatter(cat_labels)
-
-    # базовые данные (строго ОДНА активная БД)
-    base_df = load_df(ACTIVE_DB_PATH_STR, _ver=get_data_version())
 
     ss = st.session_state
 
-    def _coerce_date(v, fallback: date) -> date:
-        if not v:
-            return fallback
+    # ---------- Source dataframe + date bounds (shim, with fallback load) ----------
+    # 1) пробуем найти уже загруженный DF под разными именами
+    _base_candidates = []
+    for _name in ("base_df", "raw_df", "ops_df", "data_df", "df"):
+        if _name in locals():
+            _base_candidates.append(locals()[_name])
+        elif _name in globals():
+            _base_candidates.append(globals()[_name])
+        elif isinstance(st.session_state.get(_name), pd.DataFrame):
+            _base_candidates.append(st.session_state[_name])
+
+    base_df = next((x for x in _base_candidates if isinstance(x, pd.DataFrame)), None)
+
+    # 2) если не нашли — грузим как на Dashboard
+    if base_df is None:
         try:
-            # допускаем и 'YYYY-MM-DD', и datetime/date
-            return pd.to_datetime(v).date()
-        except Exception:
-            return fallback
+            base_df = load_df(ACTIVE_DB_PATH_STR, _ver=get_data_version())
+            # по желанию сохраним для повторного использования
+            st.session_state["base_df"] = base_df
+        except Exception as e:
+            st.error(f"Browse page: cannot load base dataframe: {e}")
+            st.stop()
 
-    def _coerce_float(v):
-        if v in (None, "", "None"):
-            return None
-        try:
-            return float(v)
-        except Exception:
-            return None
+    # 3) нормализуем даты и считаем границы
+    _date_series = pd.to_datetime(base_df["date"], errors="coerce")
+    if _date_series.isna().all():
+        st.error("Browse page: 'date' column is empty or invalid.")
+        st.stop()
 
-    # Безопасно получаем границы по данным (если таблица пустая — берём today)
-    if base_df.empty:
-        data_min = data_max = pd.to_datetime(date.today())
-    else:
-        data_min = pd.to_datetime(base_df["date"], errors="coerce").min()
-        data_max = pd.to_datetime(base_df["date"], errors="coerce").max()
-        if pd.isna(data_min):
-            data_min = pd.to_datetime(date.today())
-        if pd.isna(data_max):
-            data_max = pd.to_datetime(date.today())
+    data_min = _date_series.min().date()
+    data_max = _date_series.max().date()
 
-    # Нормализуем даты из session_state и зажимаем их в [data_min; data_max]
-    start_d = _coerce_date(ss.get("bf_start"), data_min.date())
-    end_d = _coerce_date(ss.get("bf_end"), data_max.date())
-    if start_d > end_d:
-        start_d, end_d = end_d, start_d
-    start_d = max(start_d, data_min.date())
-    end_d = min(end_d, data_max.date())
+    # ==== Ожидаемые хелперы/данные ====
+    # - base_df: DataFrame с колонками ['id','date','category','amount','description']
+    # - data_min, data_max: крайние даты в данных
+    # - categories_ui(lang) -> (cats_all: list[str], labels: dict[str,str])
+    # - make_fmt(labels) -> callable key->localized label
+    cats_all, labels = categories_ui(lang)
+    fmt = make_fmt(labels)
 
-    # Остальные поля фильтров
-    categories = ss.get("filter_categories") or []  # список ключей категорий
-    search_s = (ss.get("bf_search") or "").strip()
-    min_amt = _coerce_float(ss.get("bf_min"))
-    max_amt = _coerce_float(ss.get("bf_max"))
-    if min_amt is not None and max_amt is not None and min_amt > max_amt:
-        min_amt, max_amt = max_amt, min_amt
+    # Значения по умолчанию в сессии
+    ss.setdefault("bf_start", pd.to_datetime(data_min).date().isoformat())
+    ss.setdefault("bf_end", pd.to_datetime(data_max).date().isoformat())
+    ss.setdefault("filter_categories", cats_all.copy())
+    ss.setdefault("bf_search", "")
+    ss.setdefault("bf_min", 0.0)
+    ss.setdefault("bf_max", None)
 
-    # Основной отфильтрованный DataFrame (единый для Browse/Charts)
-    df_filtered = get_filtered_df_for_period(
-        base_df,
-        start=start_d,
-        end=end_d,
-        categories=categories or None,  # None = «все категории»
-        search=search_s,
-        min_amount=min_amt,
-        max_amount=max_amt,
-    )
-
-    # Записываем обратно нормализованные значения, чтобы виджеты не "ломались"
-    ss["bf_start"] = start_d.isoformat()
-    ss["bf_end"] = end_d.isoformat()
-    ss["bf_min"] = 0.0 if min_amt is None else min_amt
-    ss["bf_max"] = max_amt
-
-    # ---- виджеты фильтров ----
+    # ---------- Форма фильтров ----------
     with st.form("browse_form", clear_on_submit=False):
         c1, c2 = st.columns(2)
-
         with c1:
             start_d = st.date_input(
                 t("common.start", lang, default="Start"),
                 value=pd.to_datetime(ss["bf_start"]).date(),
-                min_value=data_min,
-                max_value=data_max,
+                min_value=pd.to_datetime(data_min).date(),
+                max_value=pd.to_datetime(data_max).date(),
                 key="bf_start_input",
             )
         with c2:
             end_d = st.date_input(
                 t("common.end", lang, default="End"),
                 value=pd.to_datetime(ss["bf_end"]).date(),
-                min_value=data_min,
-                max_value=data_max,
+                min_value=pd.to_datetime(data_min).date(),
+                max_value=pd.to_datetime(data_max).date(),
                 key="bf_end_input",
             )
 
-        c1, c2 = st.columns(2)
-        with c1:
+        # Тумблер: показывать только категории, реально встречающиеся в диапазоне
+        df_range = base_df[
+            (pd.to_datetime(base_df["date"]).dt.date >= start_d)
+            & (pd.to_datetime(base_df["date"]).dt.date <= end_d)
+        ]
+        only_present = st.toggle(
+            t("browse.only_present_cats", lang, default="Show only present categories"),
+            value=True,
+            help=t(
+                "browse.only_present_cats_help",
+                lang,
+                default="Limit the list to categories found in the selected date range",
+            ),
+            key="bf_only_present",
+        )
+
+        if only_present and not df_range.empty:
+            present_keys = sorted(
+                str(x) for x in df_range["category"].dropna().astype(str).unique()
+            )
+            cat_options = present_keys
+        else:
+            cat_options = cats_all
+
+        c3, c4 = st.columns(2)
+        with c3:
             selected = st.multiselect(
                 t("browse.category", lang, default="Category"),
-                options=cats_all,
-                default=ss.get("filter_categories", cats_all),
+                options=cat_options,
+                default=[
+                    c
+                    for c in ss.get("filter_categories", cat_options)
+                    if c in cat_options
+                ]
+                or cat_options,
                 format_func=fmt,
             )
-        with c2:
+        with c4:
             search_q = st.text_input(
-                t("browse.search", lang, default="Search (description contains)"),
+                t("browse.search", lang, default="Search (description or category)"),
                 value=ss.get("bf_search", ""),
             )
 
-        c1, c2 = st.columns(2)
-        with c1:
+        c5, c6 = st.columns(2)
+        with c5:
             min_amt = st.number_input(
                 t("browse.min_amount", lang, default="Min amount"),
                 value=float(ss.get("bf_min") or 0.0),
+                min_value=0.0,
+                step=1.0,
             )
-        with c2:
-            max_amt_str = st.text_input(
+        with c6:
+            max_amt = st.number_input(
                 t("browse.max_amount", lang, default="Max amount"),
-                value="" if ss.get("bf_max") in (None, "") else str(ss["bf_max"]),
+                value=(
+                    float(ss["bf_max"])
+                    if ss.get("bf_max") not in (None, "", 0.0)
+                    else 0.0
+                ),
+                min_value=0.0,
+                step=1.0,
+                help=t("browse.max_amount_help", lang, default="0 means no limit"),
             )
 
-        apply_clicked = st.form_submit_button(t("common.apply", lang, default="Apply"))
-        reset_clicked = st.form_submit_button(t("common.reset", lang, default="Reset"))
+        c7, c8 = st.columns(2)
+        with c7:
+            apply_clicked = st.form_submit_button(
+                t("common.apply", lang, default="Apply")
+            )
+        with c8:
+            reset_clicked = st.form_submit_button(
+                t("common.reset", lang, default="Reset")
+            )
 
-    # ---- обработка событий ----
+    # ---------- Обработка кнопок ----------
     if apply_clicked:
         ss["bf_start"] = start_d.isoformat()
         ss["bf_end"] = end_d.isoformat()
-        ss["filter_categories"] = selected or cats_all.copy()
+        ss["filter_categories"] = selected or cat_options.copy()
         ss["bf_search"] = (search_q or "").strip()
-
-        max_amt = None
-        if max_amt_str and str(max_amt_str).strip():
-            try:
-                max_amt = float(max_amt_str)
-            except ValueError:
-                max_amt = None
         ss["bf_min"] = float(min_amt or 0.0)
-        ss["bf_max"] = max_amt
-
+        ss["bf_max"] = (
+            None if (max_amt is None or float(max_amt) == 0.0) else float(max_amt)
+        )
         bump_data_version()
         st.rerun()
 
     if reset_clicked:
-        ss["bf_start"] = data_min.isoformat()
-        ss["bf_end"] = data_max.isoformat()
+        ss["bf_start"] = pd.to_datetime(data_min).date().isoformat()
+        ss["bf_end"] = pd.to_datetime(data_max).date().isoformat()
         ss["filter_categories"] = cats_all.copy()
         ss["bf_search"] = ""
         ss["bf_min"] = 0.0
@@ -1080,50 +1100,44 @@ if choice == "browse":
         bump_data_version()
         st.rerun()
 
-    # ---- вычисляем отфильтрованный df ----
+    # ---------- Построение фильтра ----------
     df_filtered = get_filtered_df_for_period(
         base_df,
         start=pd.to_datetime(ss["bf_start"]).date(),
         end=pd.to_datetime(ss["bf_end"]).date(),
         categories=ss.get("filter_categories"),
-        search=ss.get("bf_search", ""),
+        search=ss.get(
+            "bf_search"
+        ),  # ← передаём, и функция ищет по category И description
         min_amount=float(ss.get("bf_min") or 0.0),
-        max_amount=(None if ss.get("bf_max") in (None, "") else float(ss["bf_max"])),
+        max_amount=(
+            None if ss.get("bf_max") in (None, "", 0.0) else float(ss["bf_max"])
+        ),
     )
 
-    # (Необязательно) быстрый антидупликат — если нужно
-    # if not df_filtered.empty:
-    #     df_filtered = df_filtered.drop_duplicates(
-    #         subset=["date", "category", "amount", "description"], keep="last"
-    #     )
-
-    # ---- KPI из ТОГО ЖЕ df ----
+    # ---------- Метрики ----------
     total = float(df_filtered["amount"].sum()) if not df_filtered.empty else 0.0
-    count = int(len(df_filtered))
-    avg = float(df_filtered["amount"].mean()) if not df_filtered.empty else 0.0
+    ops = int(len(df_filtered))
+    avg = float(total / ops) if ops > 0 else 0.0
 
     c1, c2, c3 = st.columns(3)
-    c1.metric(t("kpi.total", lang, default="Total"), f"{total:,.2f}")
-    c2.metric(t("kpi.operations", lang, default="Operations"), f"{count}")
-    c3.metric(t("kpi.average", lang, default="Average"), f"{avg:,.2f}")
+    with c1:
+        st.metric(t("browse.total", lang, default="Total"), f"{total:,.2f}")
+    with c2:
+        st.metric(t("browse.operations", lang, default="Operations"), f"{ops}")
+    with c3:
+        st.metric(t("browse.avg", lang, default="Average"), f"{avg:,.2f}")
 
-    st.subheader(t("browse.results", lang, default="Filtered results"))
-
-    # локализация категорий в таблице
-    if not df_filtered.empty and "category" in df_filtered.columns:
-        df_view = df_filtered.copy()
-        df_view["category"] = df_view["category"].map(fmt)
+    # ---------- Таблица ----------
+    st.markdown("#### " + t("browse.results", lang, default="Filtered results"))
+    if df_filtered.empty:
+        st.info(t("common.no_data", lang, default="No data to display."))
     else:
-        df_view = df_filtered
-
-    render_table(
-        df_view,
-        cols=["id", "date", "category", "amount", "description"],
-        lang=lang,
-        hide_index=True,
-        width="stretch",
-        height=None,
-    )
+        show_df = df_filtered[
+            ["id", "date", "category", "amount", "description"]
+        ].copy()
+        show_df["category"] = show_df["category"].map(lambda k: fmt(k))
+        st.dataframe(show_df, use_container_width=True, hide_index=True)
 
 
 # ================ Charts ================
