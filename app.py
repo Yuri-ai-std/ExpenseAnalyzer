@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from attrs import field
+from dateutil.relativedelta import relativedelta
 
 from flash import flash, render_flash
 
@@ -405,6 +406,131 @@ def categories_ui(lang: str) -> tuple[list[str], dict[str, str]]:
     # 4) сортировка по локализованной подписи
     cats_sorted = sorted(all_cats, key=lambda c: labels[c].lower())
     return list(cats_sorted), labels
+
+
+def build_limit_suggestions(
+    df: pd.DataFrame,
+    *,
+    month_ref: date,  # текущий выбранный месяц (любой день месяца)
+    months: int,  # окно анализа, напр. 3
+    limits_by_cat: dict[str, float],  # текущие лимиты по категориям (0.0 если нет)
+    labels: dict[str, str],  # локализованные названия категорий
+    lang: str,  # 'en' | 'fr' | 'es' | 'ru'
+) -> list[str]:
+    """
+    Возвращает список строк (Markdown) с рекомендациями по лимитам:
+    - считаем средний расход за N последних месяцев (включая текущий),
+    - сравниваем с действующим лимитом,
+    - предлагаем «подтянуть» лимит до среднего (или выделяем сильные отклонения).
+    """
+
+    # Границы окна: от первого числа (month_ref - (months-1)) до конца текущего month_ref
+    start_month = (
+        pd.to_datetime(month_ref).to_period("M") - (months - 1)
+    ).to_timestamp(how="start")
+    end_month = pd.to_datetime(month_ref).to_period("M").to_timestamp(how="end")
+
+    # Фильтр по окну
+    dfw = df.copy()
+    dfw["date"] = pd.to_datetime(dfw["date"])
+    dfw = dfw[(dfw["date"] >= start_month) & (dfw["date"] <= end_month)]
+    if dfw.empty:
+        return []
+
+    # Сумма по месяцам и категориям -> затем среднее по месяцам
+    # (берём ровно N месяцев, даже если по категории нет операций в какой-то месяц)
+    dfw["month"] = dfw["date"].dt.to_period("M").dt.to_timestamp(how="start")
+    sums = dfw.groupby(["category", "month"], as_index=False)["amount"].sum()
+
+    # Все месяцы окна (ровно N)
+    months_index = pd.date_range(start=start_month, end=end_month, freq="MS")
+
+    # Гарантируем наличие «пустых» месяцев для точного среднего
+    all_rows = (
+        pd.MultiIndex.from_product(
+            [sums["category"].unique(), months_index], names=["category", "month"]
+        )
+        .to_frame(index=False)
+        .merge(sums, how="left", on=["category", "month"])
+        .fillna({"amount": 0.0})
+    )
+
+    avg = all_rows.groupby("category", as_index=False)["amount"].sum()
+    avg["avg"] = avg["amount"] / float(months)
+
+    # Формируем строки с i18n-фрагментами
+    lines: list[str] = []
+    for _, row in avg.iterrows():
+        key = str(row["category"])
+        cat_label = labels.get(key, key)
+        current_limit = float(limits_by_cat.get(key, 0.0))
+        avg_val = float(row["avg"])
+
+        # Решение: предлагаем «подтянуть» до среднего, если заметимо отличается
+        # Порог «заметности» — 5% или ≥ 1 у.е.
+        delta = avg_val - current_limit
+        significant = abs(delta) >= max(1.0, 0.05 * max(avg_val, current_limit))
+
+        # Стрелка тренда относительно текущего лимита
+        arrow = "↗" if delta > 0 else ("↘" if delta < 0 else "→")
+
+        # Локализуем небольшие текстовые фрагменты через t()
+        # (сами числа и имена категорий понятны и без перевода)
+        s_avg = t("sugg.avg", lang, default="avg")
+        s_limit = t("sugg.limit", lang, default="limit")
+        s_consider = t("sugg.consider", lang, default="consider")
+        s_last = t("sugg.last_m", lang, default="last {n} mo").format(n=months)
+
+        # Если отличие незначительное — всё равно показываем, но без «жёсткой» рекомендации
+        recommendation = (
+            f"**{s_consider}** {avg_val:,.2f}"
+            if significant
+            else f"{s_consider} ~ {avg_val:,.2f}"
+        )
+
+        line = (
+            f"- {arrow} **{cat_label}**: {s_avg} {s_last} **{avg_val:,.2f}** • "
+            f"{s_limit} **{current_limit:,.2f}** → {recommendation}"
+        )
+        lines.append(line)
+
+    # Сортировка: сначала большие отклонения
+    lines.sort(reverse=True)
+    return lines
+
+
+def classify_diff(avg_val: float, limit: float, *, tol_ok=0.05, tol_warn=0.20) -> str:
+    """
+    Классифицирует разницу между средними расходами и лимитом.
+    Возвращает текстовую метку: 'OK', 'WARN', 'ALERT'.
+    - OK: |diff| <= tol_ok
+    - WARN: tol_ok < |diff| <= tol_warn
+    - ALERT: |diff| > tol_warn
+    """
+    if limit <= 0:
+        return "ALERT" if avg_val > 0 else "OK"
+
+    rel_diff = abs(avg_val - limit) / limit
+    if rel_diff <= tol_ok:
+        return "OK"
+    elif rel_diff <= tol_warn:
+        return "WARN"
+    else:
+        return "ALERT"
+
+
+def get_month_limits_dict(
+    *, month: date, lang: str, user: str = "default"
+) -> dict[str, float]:
+    """
+    Возвращает словарь лимитов на месяц для всех категорий.
+    Берёт лимиты из JSON через load_monthly_limits(), заполняет отсутствующие категории нулями.
+    """
+    cats_all, _ = categories_ui(lang)  # уже есть в проекте
+    limits_map = load_monthly_limits(user=user)  # уже есть в проекте
+    mk = month.strftime("%Y-%m")  # ключ "YYYY-MM"
+    cur_limits = limits_map.get(mk, {}) or {}
+    return {c: float(cur_limits.get(c, 0.0)) for c in cats_all}
 
 
 def make_fmt(labels: dict[str, str]) -> LabelFn:
@@ -1994,38 +2120,82 @@ with log_col4:
         st.session_state["__limits_audit__"].clear()
         st.success(t("cleared", lang, default="Cleared!"))
 
-# 6) Подсказки (3 последних месяца)
-with st.expander("Suggestions (last 3 months)"):
+# 6) Suggestions (last 3 months) — локализуемый и аккуратный
+with st.expander(t("suggestions", lang, default="Suggestions (last 3 months)")):
     df_hist = get_expenses_df(db_path=str(db_path_str))
-    recs = []
-    if df_hist is not None and not df_hist.empty:
-        df_hist["ym"] = pd.to_datetime(df_hist["date"]).dt.strftime("%Y-%m")
-        recent = df_hist[df_hist["ym"] <= mk].copy()
-        recent = recent.sort_values("date")
-        piv = recent.pivot_table(
-            index="ym", columns="category", values="amount", aggfunc="sum"
-        ).sort_index()
-        user = st.session_state.get("current_user", "default")
-        limits_map = load_monthly_limits(
-            limits_path_for(user)
-        )  # dict: { "YYYY-MM": {cat: val, ...}, ... }
-        cur_limits = limits_map.get(mk, {})
-        for cat in sorted(set(list(piv.columns) + list(cur_limits.keys()))):
-            avg3 = float(piv.get(cat, pd.Series(dtype=float)).tail(3).mean() or 0.0)
-            lim = float(cur_limits.get(cat, 0.0))
-            if avg3 == 0 and lim == 0:
-                continue
-            if avg3 > lim * 1.1:
-                recs.append(
-                    f"↑ {cat}: avg last 3 mo {avg3:.2f} > limit {lim:.2f} → "
-                    f"consider +{avg3-lim:.2f}"
-                )
-            elif lim > 0 and lim > avg3 * 1.25:
-                recs.append(
-                    f"↓ {cat}: limit {lim:.2f} >> avg {avg3:.2f} → consider −{lim-avg3:.2f}"
-                )
-    if recs:
-        for r in recs:
-            st.write("• " + r)
+    if df_hist is None or df_hist.empty:
+        st.caption(t("suggestions.none", lang, default="No suggestions yet."))
     else:
-        st.caption("No suggestions yet.")
+        # -- последние 3 «YYYY-MM» от максимальной даты в БД --
+        df_hist["date"] = pd.to_datetime(df_hist["date"])
+        df_hist["ym"] = df_hist["date"].dt.strftime("%Y-%m")
+        last_ym = df_hist.sort_values("date")["ym"].drop_duplicates().tail(3).tolist()
+        if not last_ym:
+            st.caption(t("suggestions.none", lang, default="No suggestions yet."))
+        else:
+            recent = df_hist[df_hist["ym"].isin(last_ym)].copy()
+
+            # -- сводная: сумма по категориям за месяц, затем среднее за 3м --
+            piv = (
+                recent.pivot_table(
+                    index="ym", columns="category", values="amount", aggfunc="sum"
+                )
+                .sort_index()
+                .fillna(0.0)
+            )
+            avg3: pd.Series = piv.tail(3).mean(axis=0)  # среднее по категориям
+
+            # -- лимиты выбранного в UI месяца (или текущего при ошибке) --
+            try:
+                month_str = current_limits_month()  # "YYYY-MM"
+                month_dt = date.fromisoformat(month_str + "-01")
+            except Exception:
+                month_dt = date.today().replace(day=1)
+
+            user = st.session_state.get("current_user", "default")
+            lims = get_month_limits_dict(
+                month=month_dt, lang=lang, user=user
+            )  # {cat: limit}
+
+            # пороги: ↑ если среднее > лимита на 10%, ↓ если лимит > среднего на 25%
+            UP_K = 1.10
+            DN_K = 1.25
+
+            # множество всех категорий, встречающихся в avg3 или имеющихся в лимитах
+            cats_all = sorted(set(avg3.index.tolist()) | set(lims.keys()))
+
+            recs: list[tuple[float, str]] = []  # (|дельта|, строка)
+            for cat in cats_all:
+                a = float(avg3.get(cat, 0.0))  # средний расход за 3м
+                L = float(lims.get(cat, 0.0))  # лимит на выбранный месяц
+
+                # если совсем пусто — пропускаем
+                if a == 0 and L == 0:
+                    continue
+
+                # ↑ предложить увеличить лимит
+                if a > max(0.0, L) * UP_K:
+                    diff = a - L  # на сколько не хватает лимита
+                    rec_line = t(
+                        "suggestions.row_up",
+                        lang,
+                        default="{cat}: avg last 3 mo {avg:.2f} > limit {lim:.2f} → consider +{delta:.2f}",
+                    ).format(cat=cat, avg=a, lim=L, delta=diff)
+                    recs.append((abs(diff), rec_line))
+
+                # ↓ предложить уменьшить лимит
+                elif L > 0 and L > a * DN_K:
+                    diff = L - a  # на сколько лимит превышает среднее
+                    rec_line = t(
+                        "suggestions.row_down",
+                        lang,
+                        default="{cat}: limit {lim:.2f} >> avg {avg:.2f} → consider -{delta:.2f}",
+                    ).format(cat=cat, avg=a, lim=L, delta=diff)
+                    recs.append((abs(diff), rec_line))
+
+            if recs:
+                # сортируем по силе рекомендации (по убыванию дельты)
+                for _, line in sorted(recs, key=lambda x: x[0], reverse=True):
+                    st.write("• " + line)
+            else:
+                st.caption(t("suggestions.none", lang, default="No suggestions yet."))
